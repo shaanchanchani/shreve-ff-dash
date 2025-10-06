@@ -1,103 +1,201 @@
-import Image from "next/image";
+"use client";
+import { useState, useEffect } from "react";
+/* eslint-disable @next/next/no-img-element */
+
+interface HighScore {
+  teamName: string;
+  score: number;
+  week?: number;
+  logoURL?: string;
+}
+
+interface WeeklyWinner {
+  week: number;
+  teamName: string;
+  score: number;
+  logoURL?: string;
+}
+
+interface EliminatedTeam {
+  week: number;
+  teamName: string;
+  score: number;
+  logoURL?: string;
+}
+
+interface UnluckyTeam {
+  teamName: string;
+  pointsAgainst: number;
+  rank: number;
+  logoURL?: string;
+}
+
+interface PrizeData {
+  seasonHighScore: HighScore | null;
+  weeklyHighScores: WeeklyWinner[];
+  survivorEliminations: EliminatedTeam[];
+  unluckyTeams: UnluckyTeam[];
+}
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [prizeData, setPrizeData] = useState<PrizeData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+  useEffect(() => {
+    const fetchPrizeData = async () => {
+      try {
+        const response = await fetch('/api/espn-test');
+        if (!response.ok) throw new Error('Failed to fetch');
+        const data = await response.json();
+        setPrizeData(data);
+      } catch (err) {
+        setError('Failed to fetch ESPN data: ' + (err as Error).message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPrizeData();
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-black text-green-400 p-4 font-mono">
+      <div className="max-w-7xl mx-auto">
+
+        {loading && (
+          <div className="text-center py-8">
+            <p className="text-green-400">Loading...</p>
+          </div>
+        )}
+
+        {error && (
+          <div className="bg-red-900/20 border border-red-500 rounded p-3 mb-4">
+            <p className="text-red-400 text-sm">Error: {error}</p>
+          </div>
+        )}
+
+        {prizeData && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Season High Score */}
+            <div className="bg-gray-900 border border-green-600 rounded p-4">
+              <h2 className="text-lg font-bold text-green-400 mb-3">
+                Season High Score ($25)
+              </h2>
+              {prizeData.seasonHighScore ? (
+                <div className="bg-green-900/30 border border-green-500 rounded p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    {prizeData.seasonHighScore.logoURL && (
+                      <img 
+                        src={prizeData.seasonHighScore.logoURL} 
+                        alt={prizeData.seasonHighScore.teamName}
+                        className="w-6 h-6 rounded"
+                      />
+                    )}
+                    <p className="font-bold text-green-300 text-sm">
+                      {prizeData.seasonHighScore.teamName}
+                    </p>
+                  </div>
+                  <p className="text-xl font-bold text-green-400">
+                    {prizeData.seasonHighScore.score.toFixed(2)}
+                  </p>
+                  {prizeData.seasonHighScore.week && (
+                    <p className="text-xs text-green-500">
+                      Week {prizeData.seasonHighScore.week}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-sm">No data</p>
+              )}
+            </div>
+
+            {/* Weekly High Scores */}
+            <div className="bg-gray-900 border border-blue-600 rounded p-4">
+              <h2 className="text-lg font-bold text-blue-400 mb-3">
+                Weekly High Scores ($10/week)
+              </h2>
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {prizeData.weeklyHighScores.map((winner) => (
+                  <div key={winner.week} className="flex justify-between items-center p-2 bg-blue-900/30 border border-blue-700 rounded text-sm">
+                    <div className="flex items-center gap-2">
+                      {winner.logoURL && (
+                        <img 
+                          src={winner.logoURL} 
+                          alt={winner.teamName}
+                          className="w-4 h-4 rounded"
+                        />
+                      )}
+                      <span className="font-medium text-blue-300">
+                        Week {winner.week}: {winner.teamName}
+                      </span>
+                    </div>
+                    <span className="font-bold text-blue-400">
+                      {winner.score.toFixed(2)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Survivor Eliminations */}
+            <div className="bg-gray-900 border border-red-600 rounded p-4">
+              <h2 className="text-lg font-bold text-red-400 mb-3">
+                Survivor ($10)
+              </h2>
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {prizeData.survivorEliminations.map((elimination) => (
+                  <div key={elimination.week} className="flex justify-between items-center p-2 bg-red-900/30 border border-red-700 rounded text-sm">
+                    <div className="flex items-center gap-2">
+                      {elimination.logoURL && (
+                        <img 
+                          src={elimination.logoURL} 
+                          alt={elimination.teamName}
+                          className="w-4 h-4 rounded"
+                        />
+                      )}
+                      <span className="font-medium text-red-300">
+                        Week {elimination.week}: {elimination.teamName}
+                      </span>
+                    </div>
+                    <span className="font-bold text-red-400">
+                      {elimination.score.toFixed(2)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Unlucky Teams */}
+            <div className="bg-gray-900 border border-yellow-600 rounded p-4">
+              <h2 className="text-lg font-bold text-yellow-400 mb-3">
+                Unlucky ($10)
+              </h2>
+              <div className="space-y-1">
+                {prizeData.unluckyTeams.map((team) => (
+                  <div key={team.rank} className="flex justify-between items-center p-2 bg-yellow-900/30 border border-yellow-700 rounded text-sm">
+                    <div className="flex items-center gap-2">
+                      {team.logoURL && (
+                        <img 
+                          src={team.logoURL} 
+                          alt={team.teamName}
+                          className="w-4 h-4 rounded"
+                        />
+                      )}
+                      <span className="font-medium text-yellow-300">
+                        #{team.rank} {team.teamName}
+                      </span>
+                    </div>
+                    <span className="font-bold text-yellow-400">
+                      {team.pointsAgainst.toFixed(2)} PA
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
