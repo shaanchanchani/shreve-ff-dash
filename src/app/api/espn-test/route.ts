@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { Client } from 'espn-fantasy-football-api/node';
 
 // Simple in-memory cache
-let cachedData: any = null;
+let cachedData: PrizeData | null = null;
 let cacheTimestamp = 0;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
@@ -58,12 +58,12 @@ export async function GET() {
     const currentWeek = 5; // Only fetch played weeks for faster loading
     
     // Get team names and logos first
-    let teamIdToName: { [id: number]: string } = {};
-    let teamIdToLogo: { [id: number]: string } = {};
+    const teamIdToName: { [id: number]: string } = {};
+    const teamIdToLogo: { [id: number]: string } = {};
     try {
       const teams = await client.getTeamsAtWeek({ seasonId, scoringPeriodId: 1 });
       if (Array.isArray(teams)) {
-        teams.forEach((team: any) => {
+        teams.forEach((team: { id: number; name?: string; location?: string; logoURL?: string }) => {
           teamIdToName[team.id] = team.name || team.location || `Team ${team.id}`;
           teamIdToLogo[team.id] = team.logoURL || '';
         });
@@ -80,8 +80,8 @@ export async function GET() {
           seasonId,
           matchupPeriodId: week,
           scoringPeriodId: week
-        }).then(boxscore => ({ week, boxscore }))
-        .catch(weekError => {
+        }).then((boxscore: unknown) => ({ week, boxscore }))
+        .catch((weekError: unknown) => {
           console.warn(`Failed to fetch week ${week}:`, weekError);
           return { week, boxscore: null };
         })
@@ -103,7 +103,7 @@ export async function GET() {
       let weekHighScore: WeeklyWinner | null = null;
       let weekLowScore: EliminatedTeam | null = null;
 
-      boxscore.forEach((matchup: any) => {
+      boxscore.forEach((matchup: { homeScore?: number; awayScore?: number; homeTeamId: number; awayTeamId: number }) => {
         const homeScore = matchup.homeScore || 0;
         const awayScore = matchup.awayScore || 0;
         const homeTeamId = matchup.homeTeamId;
@@ -147,7 +147,7 @@ export async function GET() {
       if (weekHighScore) weeklyHighScores.push(weekHighScore);
       if (weekLowScore) {
         survivorEliminations.push(weekLowScore);
-        eliminatedTeams.add(weekLowScore.teamName);
+        eliminatedTeams.add((weekLowScore as EliminatedTeam).teamName);
       }
     });
 
