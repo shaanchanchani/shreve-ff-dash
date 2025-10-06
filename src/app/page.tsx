@@ -60,12 +60,13 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-black text-green-400 p-4 font-mono">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-800 text-white p-6 font-sans">
       <div className="max-w-7xl mx-auto">
+        
 
         {loading && (
           <div className="text-center py-8">
-            <p className="text-green-400">Loading...</p>
+            <p className="text-gray-300">Loading...</p>
           </div>
         )}
 
@@ -78,12 +79,12 @@ export default function Home() {
         {prizeData && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Season High Score */}
-            <div className="bg-gray-900 border border-green-600 rounded p-4">
-              <h2 className="text-lg font-bold text-green-400 mb-3">
+            <div className="bg-gradient-to-br from-gray-800/80 via-gray-700/60 to-gray-900/80 backdrop-blur-sm border border-gray-600 rounded-xl p-6 shadow-2xl">
+              <h2 className="text-xl font-bold text-white mb-4">
                 Season High Score ($25)
               </h2>
               {prizeData.seasonHighScore ? (
-                <div className="bg-green-900/30 border border-green-500 rounded p-3">
+                <div className="bg-gradient-to-r from-gray-700/60 to-gray-600/40 border border-gray-500/50 rounded-lg p-4">
                   <div className="flex items-center gap-2 mb-2">
                     {prizeData.seasonHighScore.logoURL && (
                       <img 
@@ -92,15 +93,15 @@ export default function Home() {
                         className="w-6 h-6 rounded"
                       />
                     )}
-                    <p className="font-bold text-green-300 text-sm">
+                    <p className="font-bold text-gray-200 text-sm">
                       {prizeData.seasonHighScore.teamName}
                     </p>
                   </div>
-                  <p className="text-xl font-bold text-green-400">
+                  <p className="text-2xl font-bold text-white">
                     {prizeData.seasonHighScore.score.toFixed(2)}
                   </p>
                   {prizeData.seasonHighScore.week && (
-                    <p className="text-xs text-green-500">
+                    <p className="text-xs text-gray-400">
                       Week {prizeData.seasonHighScore.week}
                     </p>
                   )}
@@ -111,14 +112,17 @@ export default function Home() {
             </div>
 
             {/* Weekly High Scores */}
-            <div className="bg-gray-900 border border-blue-600 rounded p-4">
-              <h2 className="text-lg font-bold text-blue-400 mb-3">
+            <div className="bg-gradient-to-br from-gray-800/80 via-gray-700/60 to-gray-900/80 backdrop-blur-sm border border-gray-600 rounded-xl p-6 shadow-2xl">
+              <h2 className="text-xl font-bold text-white mb-4">
                 Weekly High Scores ($10/week)
               </h2>
-              <div className="space-y-1 max-h-48 overflow-y-auto">
+              <div className="space-y-1">
                 {prizeData.weeklyHighScores.map((winner) => (
-                  <div key={winner.week} className="flex justify-between items-center p-2 bg-blue-900/30 border border-blue-700 rounded text-sm">
+                  <div key={winner.week} className="flex justify-between items-center p-3 bg-gradient-to-r from-gray-700/60 to-gray-600/40 border border-gray-500/50 rounded-lg text-sm">
                     <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-400 text-xs">
+                        W{winner.week}:
+                      </span>
                       {winner.logoURL && (
                         <img 
                           src={winner.logoURL} 
@@ -126,11 +130,11 @@ export default function Home() {
                           className="w-4 h-4 rounded"
                         />
                       )}
-                      <span className="font-medium text-blue-300">
-                        Week {winner.week}: {winner.teamName}
+                      <span className="font-medium text-gray-200">
+                        {winner.teamName}
                       </span>
                     </div>
-                    <span className="font-bold text-blue-400">
+                    <span className="font-bold text-white">
                       {winner.score.toFixed(2)}
                     </span>
                   </div>
@@ -139,14 +143,17 @@ export default function Home() {
             </div>
 
             {/* Survivor Eliminations */}
-            <div className="bg-gray-900 border border-red-600 rounded p-4">
-              <h2 className="text-lg font-bold text-red-400 mb-3">
+            <div className="bg-gradient-to-br from-gray-800/80 via-gray-700/60 to-gray-900/80 backdrop-blur-sm border border-gray-600 rounded-xl p-6 shadow-2xl">
+              <h2 className="text-xl font-bold text-white mb-4">
                 Survivor ($10)
               </h2>
-              <div className="space-y-1 max-h-48 overflow-y-auto">
+              <div className="space-y-1">
                 {prizeData.survivorEliminations.map((elimination) => (
-                  <div key={elimination.week} className="flex justify-between items-center p-2 bg-red-900/30 border border-red-700 rounded text-sm">
+                  <div key={elimination.week} className="flex justify-between items-center p-3 bg-gradient-to-r from-gray-700/60 to-gray-600/40 border border-gray-500/50 rounded-lg text-sm">
                     <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-400 text-xs">
+                        W{elimination.week}:
+                      </span>
                       {elimination.logoURL && (
                         <img 
                           src={elimination.logoURL} 
@@ -154,11 +161,11 @@ export default function Home() {
                           className="w-4 h-4 rounded"
                         />
                       )}
-                      <span className="font-medium text-red-300">
-                        Week {elimination.week}: {elimination.teamName}
+                      <span className="font-medium text-gray-200">
+                        {elimination.teamName}
                       </span>
                     </div>
-                    <span className="font-bold text-red-400">
+                    <span className="font-bold text-white">
                       {elimination.score.toFixed(2)}
                     </span>
                   </div>
@@ -167,13 +174,13 @@ export default function Home() {
             </div>
 
             {/* Unlucky Teams */}
-            <div className="bg-gray-900 border border-yellow-600 rounded p-4">
-              <h2 className="text-lg font-bold text-yellow-400 mb-3">
-                Unlucky ($10)
+            <div className="bg-gradient-to-br from-gray-800/80 via-gray-700/60 to-gray-900/80 backdrop-blur-sm border border-gray-600 rounded-xl p-6 shadow-2xl">
+              <h2 className="text-xl font-bold text-white mb-4">
+                Unlucky Candidates ($10)
               </h2>
               <div className="space-y-1">
                 {prizeData.unluckyTeams.map((team) => (
-                  <div key={team.rank} className="flex justify-between items-center p-2 bg-yellow-900/30 border border-yellow-700 rounded text-sm">
+                  <div key={team.rank} className="flex justify-between items-center p-3 bg-gradient-to-r from-gray-700/60 to-gray-600/40 border border-gray-500/50 rounded-lg text-sm">
                     <div className="flex items-center gap-2">
                       {team.logoURL && (
                         <img 
@@ -182,11 +189,11 @@ export default function Home() {
                           className="w-4 h-4 rounded"
                         />
                       )}
-                      <span className="font-medium text-yellow-300">
+                      <span className="font-medium text-gray-200">
                         #{team.rank} {team.teamName}
                       </span>
                     </div>
-                    <span className="font-bold text-yellow-400">
+                    <span className="font-bold text-white">
                       {team.pointsAgainst.toFixed(2)} PA
                     </span>
                   </div>
