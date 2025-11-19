@@ -10,4 +10,5 @@ dependencies = [
     "uvicorn",
     "requests",
     "python-dotenv>=1.2.1",
+    "espn-api",
 ]

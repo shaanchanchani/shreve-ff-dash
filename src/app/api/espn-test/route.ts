@@ -4,13 +4,23 @@ import { Client } from 'espn-fantasy-football-api/node';
 // Simple in-memory cache
 let cachedData: PrizeData | null = null;
 let cacheTimestamp = 0;
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const CACHE_DURATION = 2 * 60 * 60 * 1000; // 2 hours
+
+
+interface Player {
+  name: string;
+  position: string;
+  points: number;
+  team: string;
+  headshot?: string;
+}
 
 interface HighScore {
   teamName: string;
   score: number;
   week?: number;
   logoURL?: string;
+  topPlayers?: Player[];
 }
 
 interface WeeklyWinner {
@@ -41,6 +51,44 @@ interface PrizeData {
   unluckyTeams: UnluckyTeam[];
 }
 
+interface BoxscoreRosterEntry {
+  id: number;
+  fullName: string;
+  rosteredPosition: string;
+  totalPoints: number;
+  proTeamAbbreviation?: string;
+}
+
+interface BoxscoreMatchup {
+  homeTeamId: number;
+  awayTeamId: number;
+  homeScore?: number;
+  awayScore?: number;
+  homeRoster?: unknown[];
+  awayRoster?: unknown[];
+}
+
+const isBoxscoreMatchup = (value: unknown): value is BoxscoreMatchup => {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const candidate = value as Partial<BoxscoreMatchup>;
+  return typeof candidate.homeTeamId === 'number' && typeof candidate.awayTeamId === 'number';
+};
+
+const isBoxscoreRosterEntry = (value: unknown): value is BoxscoreRosterEntry => {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const candidate = value as Partial<BoxscoreRosterEntry>;
+  return (
+    typeof candidate.id === 'number' &&
+    typeof candidate.fullName === 'string' &&
+    typeof candidate.rosteredPosition === 'string' &&
+    typeof candidate.totalPoints === 'number'
+  );
+};
+
 export async function GET() {
   try {
     // Check cache first
@@ -55,7 +103,7 @@ export async function GET() {
     });
 
     const seasonId = 2025; // Updated to 2025 season
-    const currentWeek = 5; // Only fetch played weeks for faster loading
+    const currentWeek = 14; // Fetch all regular season weeks
     
     // Get team names and logos first
     const teamIdToName: { [id: number]: string } = {};
@@ -136,10 +184,11 @@ export async function GET() {
         }
 
         // Check for weekly low score (for survivor) - only among teams not already eliminated
-        if (!eliminatedTeams.has(homeTeamName) && (!weekLowScore || homeScore < weekLowScore.score)) {
+        // Only consider scores > 0 to handle future weeks that haven't been played yet
+        if (!eliminatedTeams.has(homeTeamName) && homeScore > 0 && (!weekLowScore || homeScore < weekLowScore.score)) {
           weekLowScore = { week, teamName: homeTeamName, score: homeScore, logoURL: homeTeamLogo };
         }
-        if (!eliminatedTeams.has(awayTeamName) && (!weekLowScore || awayScore < weekLowScore.score)) {
+        if (!eliminatedTeams.has(awayTeamName) && awayScore > 0 && (!weekLowScore || awayScore < weekLowScore.score)) {
           weekLowScore = { week, teamName: awayTeamName, score: awayScore, logoURL: awayTeamLogo };
         }
       });
@@ -162,6 +211,59 @@ export async function GET() {
       .sort((a, b) => b.pointsAgainst - a.pointsAgainst)
       .slice(0, 3)
       .map((team, index) => ({ ...team, rank: index + 1 }));
+
+    const addSeasonHighScorePlayers = async (highScore: HighScore) => {
+      try {
+        const teamId = Object.keys(teamIdToName).find(id => 
+          teamIdToName[parseInt(id, 10)] === highScore.teamName
+        );
+        
+        if (teamId && highScore.week) {
+          const roster = await client.getBoxscoreForWeek({
+            seasonId,
+            matchupPeriodId: highScore.week,
+            scoringPeriodId: highScore.week
+          });
+          
+          // Find the specific team's matchup data
+          if (Array.isArray(roster)) {
+            const typedMatchups = roster.filter(isBoxscoreMatchup);
+            const numericTeamId = parseInt(teamId, 10);
+            const teamMatchup = typedMatchups.find(matchup => 
+              matchup.homeTeamId === numericTeamId || matchup.awayTeamId === numericTeamId
+            );
+            
+            if (teamMatchup) {
+              const isHomeTeam = teamMatchup.homeTeamId === numericTeamId;
+              const teamRoster = isHomeTeam ? teamMatchup.homeRoster : teamMatchup.awayRoster;
+              
+              if (teamRoster && Array.isArray(teamRoster)) {
+                const rosterEntries = teamRoster.filter(isBoxscoreRosterEntry);
+                const topPlayers = rosterEntries
+                  .filter(player => player.totalPoints > 0)
+                  .map<Player>((player) => ({
+                    name: player.fullName,
+                    position: player.rosteredPosition,
+                    points: player.totalPoints,
+                    team: player.proTeamAbbreviation || '',
+                    headshot: `https://a.espncdn.com/i/headshots/nfl/players/full/${player.id}.png`
+                  }))
+                  .sort((a, b) => b.points - a.points)
+                  .slice(0, 4);
+                
+                highScore.topPlayers = topPlayers;
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to fetch player details for season high score:', error);
+      }
+    };
+
+    if (seasonHighScore) {
+      await addSeasonHighScorePlayers(seasonHighScore);
+    }
 
     const prizeData: PrizeData = {
       seasonHighScore,
