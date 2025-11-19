@@ -25,22 +25,24 @@ export function LeagueStatsCard({
           Season High Score ($25)
         </p>
         {prizeData.seasonHighScore ? (
-          <div className="overflow-hidden rounded-xl border border-[var(--tide)] bg-[var(--tide)]/10">
+          <div className="overflow-hidden rounded-xl border border-white/10 bg-white/5">
             <div className="border-b border-white/10 p-3">
               <div className="flex items-center gap-3">
                 <TeamLogo
                   logoURL={prizeData.seasonHighScore.logoURL}
                   label={prizeData.seasonHighScore.teamName}
                 />
-                <div>
+                <div className="flex-1 min-w-0">
                   <span className="font-heading text-lg uppercase">
                     {prizeData.seasonHighScore.teamName}
                   </span>
-                  <div className="text-xs uppercase text-white/50">
-                    Week {prizeData.seasonHighScore.week} ·{" "}
-                    {Math.round(prizeData.seasonHighScore.score)} pts · $25
+                  <div className="font-heading text-xs uppercase text-white/60 text-left">
+                    Week {prizeData.seasonHighScore.week}
                   </div>
                 </div>
+                <span className="ml-auto font-field text-2xl text-[var(--ember)]">
+                  {Math.round(prizeData.seasonHighScore.score)} pts
+                </span>
               </div>
             </div>
             {prizeData.seasonHighScore.topPlayers &&
@@ -188,7 +190,7 @@ export function LeagueStatsCard({
                           <span className="font-heading text-sm uppercase">
                             {card.data.player}
                           </span>
-                          <div className="text-xs uppercase text-white/50">
+                          <div className="font-heading text-xs uppercase text-white/60 text-left">
                             Week {card.data.week}
                           </div>
                         </div>
