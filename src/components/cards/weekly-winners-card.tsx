@@ -62,10 +62,6 @@ export function WeeklyWinnersSummarySection({
         Weekly Winners ($10)
       </p>
       <div className="mt-6">
-        <h3 className="font-heading mb-3 text-lg uppercase">
-          Unique Winners ({uniqueWinners.length})
-        </h3>
-
         <CondensedTeamList
           items={condensedItems}
           footerLabel="See Week Breakdown"

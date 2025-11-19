@@ -141,10 +141,6 @@ function SurvivorTeamsSection({
 
   return (
     <div>
-      <h3 className="font-heading mb-3 text-lg uppercase">
-        Surviving Teams ({survivingTeams.length})
-      </h3>
-
       {survivingTeams.length > 1 ? (
         onBreakdown ? (
           <CondensedTeamList
