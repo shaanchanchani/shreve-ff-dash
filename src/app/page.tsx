@@ -30,6 +30,22 @@ interface UnluckyTeam {
   logoURL?: string;
 }
 
+interface TouchdownData {
+  player: string;
+  yards: number;
+  week: number;
+  fantasy_owner?: string;
+}
+
+interface LongestTDs {
+  rushing_tds?: TouchdownData[];
+  receiving_tds?: TouchdownData[];
+  passing_tds?: TouchdownData[];
+  longest_started_rushing_td?: TouchdownData;
+  longest_started_receiving_td?: TouchdownData;
+  longest_started_passing_td?: TouchdownData;
+}
+
 interface PrizeData {
   seasonHighScore: HighScore | null;
   weeklyHighScores: WeeklyWinner[];
@@ -39,24 +55,34 @@ interface PrizeData {
 
 export default function Home() {
   const [prizeData, setPrizeData] = useState<PrizeData | null>(null);
+  const [longestTDs, setLongestTDs] = useState<LongestTDs | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchPrizeData = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch('/api/espn-test');
-        if (!response.ok) throw new Error('Failed to fetch');
-        const data = await response.json();
-        setPrizeData(data);
+        const [prizeResponse, tdsResponse] = await Promise.all([
+          fetch('/api/espn-test'),
+          fetch('/api/longest-tds')
+        ]);
+        
+        if (!prizeResponse.ok) throw new Error('Failed to fetch prize data');
+        if (!tdsResponse.ok) throw new Error('Failed to fetch TDs data');
+        
+        const prizeData = await prizeResponse.json();
+        const tdsData = await tdsResponse.json();
+        
+        setPrizeData(prizeData);
+        setLongestTDs(tdsData);
       } catch (err) {
-        setError('Failed to fetch ESPN data: ' + (err as Error).message);
+        setError('Failed to fetch data: ' + (err as Error).message);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchPrizeData();
+    fetchData();
   }, []);
 
   return (
@@ -77,7 +103,49 @@ export default function Home() {
         )}
 
         {prizeData && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="space-y-6">
+            {/* Longest Started TDs Section */}
+            {longestTDs && (
+              <div className="bg-gradient-to-br from-gray-800/80 via-gray-700/60 to-gray-900/80 backdrop-blur-sm border border-gray-600 rounded-xl p-6 shadow-2xl">
+                <h2 className="text-xl font-bold text-white mb-4">
+                  Longest TDs (When Started) 🏆
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  {longestTDs.longest_started_rushing_td && (
+                    <div className="bg-gradient-to-r from-yellow-700/60 to-yellow-600/40 border border-yellow-500/50 rounded-lg p-4">
+                      <h3 className="text-sm font-bold text-yellow-200 mb-2">Longest Started Rushing TD</h3>
+                      <p className="text-lg font-bold text-white">{longestTDs.longest_started_rushing_td.player}</p>
+                      <p className="text-2xl font-bold text-yellow-300">{longestTDs.longest_started_rushing_td.yards} yards</p>
+                      <p className="text-xs text-yellow-200">Week {longestTDs.longest_started_rushing_td.week}</p>
+                      <p className="text-xs text-yellow-300 font-medium">📈 Started by {longestTDs.longest_started_rushing_td.fantasy_owner}</p>
+                    </div>
+                  )}
+                  
+                  {longestTDs.longest_started_receiving_td && (
+                    <div className="bg-gradient-to-r from-yellow-700/60 to-yellow-600/40 border border-yellow-500/50 rounded-lg p-4">
+                      <h3 className="text-sm font-bold text-yellow-200 mb-2">Longest Started Receiving TD</h3>
+                      <p className="text-lg font-bold text-white">{longestTDs.longest_started_receiving_td.player}</p>
+                      <p className="text-2xl font-bold text-yellow-300">{longestTDs.longest_started_receiving_td.yards} yards</p>
+                      <p className="text-xs text-yellow-200">Week {longestTDs.longest_started_receiving_td.week}</p>
+                      <p className="text-xs text-yellow-300 font-medium">📈 Started by {longestTDs.longest_started_receiving_td.fantasy_owner}</p>
+                    </div>
+                  )}
+                  
+                  {longestTDs.longest_started_passing_td && (
+                    <div className="bg-gradient-to-r from-yellow-700/60 to-yellow-600/40 border border-yellow-500/50 rounded-lg p-4">
+                      <h3 className="text-sm font-bold text-yellow-200 mb-2">Longest Started Passing TD</h3>
+                      <p className="text-lg font-bold text-white">{longestTDs.longest_started_passing_td.player}</p>
+                      <p className="text-2xl font-bold text-yellow-300">{longestTDs.longest_started_passing_td.yards} yards</p>
+                      <p className="text-xs text-yellow-200">Week {longestTDs.longest_started_passing_td.week}</p>
+                      <p className="text-xs text-yellow-300 font-medium">📈 Started by {longestTDs.longest_started_passing_td.fantasy_owner}</p>
+                    </div>
+                  )}
+                </div>
+                
+              </div>
+            )}
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Season High Score */}
             <div className="bg-gradient-to-br from-gray-800/80 via-gray-700/60 to-gray-900/80 backdrop-blur-sm border border-gray-600 rounded-xl p-6 shadow-2xl">
               <h2 className="text-xl font-bold text-white mb-4">
@@ -200,6 +268,7 @@ export default function Home() {
                 ))}
               </div>
             </div>
+          </div>
           </div>
         )}
       </div>
