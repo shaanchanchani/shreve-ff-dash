@@ -1,55 +1,19 @@
 import { NextResponse } from 'next/server';
 import { Client } from 'espn-fantasy-football-api/node';
+import type {
+  PrizeData,
+  Player,
+  HighScore,
+  WeeklyWinner,
+  EliminatedTeam,
+  UnluckyTeam,
+} from '@/types/prizes';
 
 // Simple in-memory cache
 let cachedData: PrizeData | null = null;
 let cacheTimestamp = 0;
 const CACHE_DURATION = 2 * 60 * 60 * 1000; // 2 hours
 
-
-interface Player {
-  name: string;
-  position: string;
-  points: number;
-  team: string;
-  headshot?: string;
-}
-
-interface HighScore {
-  teamName: string;
-  score: number;
-  week?: number;
-  logoURL?: string;
-  topPlayers?: Player[];
-}
-
-interface WeeklyWinner {
-  week: number;
-  teamName: string;
-  score: number;
-  logoURL?: string;
-}
-
-interface EliminatedTeam {
-  week: number;
-  teamName: string;
-  score: number;
-  logoURL?: string;
-}
-
-interface UnluckyTeam {
-  teamName: string;
-  pointsAgainst: number;
-  rank: number;
-  logoURL?: string;
-}
-
-interface PrizeData {
-  seasonHighScore: HighScore | null;
-  weeklyHighScores: WeeklyWinner[];
-  survivorEliminations: EliminatedTeam[];
-  unluckyTeams: UnluckyTeam[];
-}
 
 interface BoxscoreRosterEntry {
   id: number;
