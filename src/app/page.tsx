@@ -111,6 +111,9 @@ type LedgerEntry = {
   notes: string[];
 };
 
+const LONGEST_TDS_ENDPOINT =
+  process.env.NEXT_PUBLIC_LONGEST_TDS_URL?.trim() || "/api/longest-tds";
+
 export default function Home() {
   const [prizeData, setPrizeData] = useState<PrizeData | null>(null);
   const [longestTDs, setLongestTDs] = useState<LongestTDs | null>(null);
@@ -133,7 +136,7 @@ export default function Home() {
 
     const fetchLongestTDs = async () => {
       try {
-        const tdsResponse = await fetch("http://localhost:8000/");
+        const tdsResponse = await fetch(LONGEST_TDS_ENDPOINT);
         if (tdsResponse.ok) {
           const tdsResult = await tdsResponse.json();
           setLongestTDs(tdsResult);
