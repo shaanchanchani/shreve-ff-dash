@@ -1,7 +1,5 @@
-import { SwipeCard } from "./swipe-card";
-
 export const PayoutCardSkeleton = () => (
-  <SwipeCard className="animate-pulse">
+  <section className="animate-pulse space-y-5">
     <div className="mb-5 flex items-center justify-between">
       <div className="h-6 w-40 rounded bg-white/10" />
     </div>
@@ -43,11 +41,11 @@ export const PayoutCardSkeleton = () => (
         </tbody>
       </table>
     </div>
-  </SwipeCard>
+  </section>
 );
 
 export const LeagueCardSkeleton = () => (
-  <SwipeCard className="animate-pulse">
+  <section className="animate-pulse space-y-5">
     <div className="mb-5 flex flex-col gap-3">
       <div className="h-6 w-48 rounded bg-white/10" />
       <div className="h-32 rounded-2xl border border-white/10 bg-white/5" />
@@ -106,11 +104,11 @@ export const LeagueCardSkeleton = () => (
         </tbody>
       </table>
     </div>
-  </SwipeCard>
+  </section>
 );
 
 export const WeeklySurvivorSkeleton = () => (
-  <SwipeCard className="animate-pulse">
+  <section className="animate-pulse space-y-8">
     <div className="mb-3 h-4 w-32 rounded bg-white/10" />
     <div className="mt-6">
       <div className="mb-3 h-5 w-40 rounded bg-white/10" />
@@ -157,11 +155,11 @@ export const WeeklySurvivorSkeleton = () => (
       </div>
       <div className="mt-6 h-11 rounded-full border border-white/10 bg-white/5" />
     </div>
-  </SwipeCard>
+  </section>
 );
 
 export const WeeklyBreakdownSkeleton = () => (
-  <SwipeCard className="animate-pulse">
+  <section className="animate-pulse space-y-5">
     <div className="mb-3 h-4 w-32 rounded bg-white/10" />
     <div className="overflow-hidden rounded-xl border border-white/10 bg-white/5">
       <table className="w-full">
@@ -188,11 +186,11 @@ export const WeeklyBreakdownSkeleton = () => (
         </tbody>
       </table>
     </div>
-  </SwipeCard>
+  </section>
 );
 
 export const SurvivorCardSkeleton = () => (
-  <SwipeCard className="animate-pulse">
+  <section className="animate-pulse space-y-6">
     <div className="mb-4 flex items-center justify-between">
       <div className="h-6 w-32 rounded bg-white/10" />
       <div className="h-6 w-8 rounded bg-white/10" />
@@ -250,5 +248,5 @@ export const SurvivorCardSkeleton = () => (
         </tbody>
       </table>
     </div>
-  </SwipeCard>
+  </section>
 );

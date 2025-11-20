@@ -1,5 +1,4 @@
 import { useRouter } from "next/navigation";
-import { SwipeCard } from "./swipe-card";
 import { TeamLogo } from "../common/team-logo";
 import type { PrizeData } from "@/types/prizes";
 import { getSurvivingTeams, getTeamLogo } from "@/lib/prize-calculations";
@@ -25,9 +24,9 @@ const SURVIVOR_BREAKDOWN_ROUTE = "/survivor";
 
 export function SurvivorPoolCard({ prizeData }: SurvivorPoolCardProps) {
   return (
-    <SwipeCard aria-label="Survivor Pool">
+    <section aria-label="Survivor Pool">
       <SurvivorSummarySection prizeData={prizeData} />
-    </SwipeCard>
+    </section>
   );
 }
 

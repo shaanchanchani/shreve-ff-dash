@@ -11,7 +11,6 @@ import {
 import { usePrizeDashboard } from "@/hooks/use-prize-dashboard";
 import { WeeklyWinnersBreakdownContent } from "@/components/cards/weekly-winners-card";
 import { WeeklyBreakdownSkeleton } from "@/components/cards/skeletons";
-import { swipeCardClass } from "@/components/cards/swipe-card";
 import { basePalette, fontVariableClasses } from "@/lib/theme";
 import {
   DASHBOARD_RETURN_CARD_STORAGE_KEY,
@@ -65,9 +64,7 @@ export default function WeeklyBreakdownPage() {
   const cardContent = useMemo(() => {
     if (error) {
       return (
-        <div
-          className={`${swipeCardClass} border border-red-400/40 bg-red-900/40 text-sm text-red-50`}
-        >
+        <div className="rounded-2xl border border-red-400/40 bg-red-900/30 px-4 py-3 text-sm text-red-50">
           {error}
         </div>
       );
@@ -78,10 +75,8 @@ export default function WeeklyBreakdownPage() {
     }
 
     return (
-      <section className={swipeCardClass}>
-        <p className="mb-3 text-sm uppercase text-white/60">
-          Weekly Winners ($10)
-        </p>
+      <section className="space-y-4">
+        <p className="text-sm uppercase text-white/60">Weekly Winners ($10)</p>
         <WeeklyWinnersBreakdownContent prizeData={prizeData} />
       </section>
     );
@@ -121,7 +116,7 @@ export default function WeeklyBreakdownPage() {
           </span>
         </button>
 
-        <div className="relative z-10 mx-auto flex max-w-md flex-col gap-6 px-5 pb-20 pt-16">
+        <div className="relative z-10 mx-auto flex w-full max-w-3xl flex-col gap-10 px-5 pb-20 pt-16">
           {cardContent}
         </div>
       </main>

@@ -1,5 +1,4 @@
 import { useRouter } from "next/navigation";
-import { SwipeCard } from "./swipe-card";
 import { TeamLogo } from "../common/team-logo";
 import type { PrizeData, WeeklyWinner } from "@/types/prizes";
 import {
@@ -27,9 +26,9 @@ const WEEKLY_BREAKDOWN_ROUTE = "/weekly";
 
 export function WeeklyWinnersCard({ prizeData }: WeeklyWinnersCardProps) {
   return (
-    <SwipeCard aria-label="Weekly Winners">
+    <section aria-label="Weekly Winners">
       <WeeklyWinnersSummarySection prizeData={prizeData} />
-    </SwipeCard>
+    </section>
   );
 }
 

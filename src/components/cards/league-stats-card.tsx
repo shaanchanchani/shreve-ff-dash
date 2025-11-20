@@ -1,5 +1,4 @@
 /* eslint-disable @next/next/no-img-element */
-import { SwipeCard } from "./swipe-card";
 import { TeamLogo } from "../common/team-logo";
 import { HybridPlayerLogo } from "../common/hybrid-player-logo";
 import type { PrizeData } from "@/types/prizes";
@@ -19,7 +18,7 @@ export function LeagueStatsCard({
   isLoadingLongest,
 }: LeagueStatsCardProps) {
   return (
-    <SwipeCard aria-label="League Stats Snapshot">
+    <section aria-label="League Stats Snapshot" className="space-y-6">
       <div>
         <p className="mb-3 text-sm uppercase text-white/60">
           Season High Score ($25)
@@ -224,6 +223,6 @@ export function LeagueStatsCard({
           </table>
         </div>
       </div>
-    </SwipeCard>
+    </section>
   );
 }

@@ -1,4 +1,3 @@
-import { SwipeCard } from "./swipe-card";
 import { TeamLogo } from "../common/team-logo";
 import type { PrizeData, TeamSummary } from "@/types/prizes";
 import { formatCurrency, getTeamLogo } from "@/lib/prize-calculations";
@@ -13,14 +12,8 @@ export function PayoutPictureCard({
   teamSummaries,
 }: PayoutPictureCardProps) {
   return (
-    <SwipeCard aria-label="Projected Payouts">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="font-heading text-xl uppercase">Payout Picture</h2>
-        </div>
-      </div>
-
-      <div className="mt-5 overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+    <section aria-label="Projected Payouts">
+      <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
         <table className="w-full">
           <thead className="border-b border-white/10">
             <tr className="text-xs uppercase text-white/60">
@@ -61,6 +54,6 @@ export function PayoutPictureCard({
           </tbody>
         </table>
       </div>
-    </SwipeCard>
+    </section>
   );
 }
