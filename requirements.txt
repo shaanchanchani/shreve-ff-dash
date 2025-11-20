@@ -1,0 +1,7 @@
+nfl-data-py
+fastapi
+uvicorn
+requests
+python-dotenv>=1.2.1
+espn-api
+pandas

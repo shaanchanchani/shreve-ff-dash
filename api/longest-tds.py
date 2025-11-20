@@ -210,6 +210,7 @@ def get_longest_tds(df):
     return result
 
 @app.get("/")
+@app.get("/api/longest-tds")
 async def get_longest_touchdowns_2025():
     global _cache, _cache_timestamp
     
