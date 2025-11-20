@@ -23,7 +23,7 @@ export function CondensedTeamList({
   const hasValueColumn = items.some((item) => Boolean(item.value));
 
   return (
-    <div className="overflow-hidden rounded-xl border border-white/10 bg-[var(--surface)]">
+    <div className="card-surface overflow-hidden rounded-xl border border-white/10">
       {items.length > 0 ? (
         <>
           <div className="max-h-48 overflow-y-auto">
@@ -37,7 +37,7 @@ export function CondensedTeamList({
                     <td className={`p-2 ${hasValueColumn ? "" : "w-full"}`}>
                       <div className="flex items-center gap-1.5">
                         <TeamLogo logoURL={item.logoURL} label={item.teamName} />
-                        <span className="font-heading text-[0.5rem] uppercase tracking-wide text-white/80">
+                        <span className="font-heading text-[0.5rem] uppercase tracking-wide text-white">
                           {item.teamName}
                         </span>
                       </div>

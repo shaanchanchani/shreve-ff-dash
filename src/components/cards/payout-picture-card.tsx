@@ -13,17 +13,20 @@ export function PayoutPictureCard({
 }: PayoutPictureCardProps) {
   return (
     <section aria-label="Projected Payouts">
-      <div className="overflow-hidden rounded-2xl border border-white/10 bg-[var(--surface)]">
+      <div className="card-surface overflow-hidden rounded-2xl border border-white/10">
         <table className="w-full">
           <thead className="border-b border-white/10">
             <tr className="text-[0.58rem] uppercase tracking-[0.2em] text-white/60">
               <th className="px-3 py-2.5 text-left">Team</th>
-              <th className="px-3 py-2.5 text-right">Min</th>
+              <th className="px-3 py-2.5 text-right">Curr</th>
               <th className="px-3 py-2.5 text-right">Max</th>
             </tr>
           </thead>
           <tbody>
-            {teamSummaries.map(({ teamName, minPayout, maxPayout }, index) => (
+            {teamSummaries.map(({ teamName, minPayout, maxPayout }, index) => {
+              const displayMin = minPayout === 0 ? "-" : formatCurrency(minPayout);
+              const displayMax = maxPayout === 0 ? "-" : formatCurrency(maxPayout);
+              return (
               <tr
                 key={teamName}
                 className={`border-white/5 hover:bg-white/5 ${index < teamSummaries.length - 1 ? "border-b" : ""}`}
@@ -40,17 +43,18 @@ export function PayoutPictureCard({
                   </div>
                 </td>
                 <td className="px-3 py-2.5 text-right">
-                  <span className="font-sports text-[0.75rem] text-[var(--tide)]">
-                    {formatCurrency(minPayout)}
+                  <span className="font-sports text-[1.125rem] text-[var(--tide)]">
+                    {displayMin}
                   </span>
                 </td>
                 <td className="px-3 py-2.5 text-right">
-                  <span className="font-sports text-[0.75rem] text-[var(--ember)]">
-                    {formatCurrency(maxPayout)}
+                  <span className="font-sports text-[1.125rem] text-[var(--ember)]">
+                    {displayMax}
                   </span>
                 </td>
               </tr>
-            ))}
+            );
+            })}
           </tbody>
         </table>
       </div>

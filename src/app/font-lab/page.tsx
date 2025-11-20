@@ -144,7 +144,7 @@ export default function FontLab() {
           {fontSamples.map((font) => (
             <div
               key={font.name}
-              className="rounded-3xl border border-white/10 bg-[var(--surface)] p-5 shadow-[0_20px_45px_rgba(0,0,0,0.45)] backdrop-blur-sm"
+              className="card-surface rounded-3xl border border-white/10 p-5 shadow-[0_20px_45px_rgba(0,0,0,0.45)] backdrop-blur-sm"
             >
               <p
                 className="text-[2.2rem] uppercase tracking-[0.25em] drop-shadow-[0_10px_25px_rgba(0,0,0,0.55)]"

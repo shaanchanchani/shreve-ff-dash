@@ -23,7 +23,7 @@ interface SurvivingTeam {
 
 const SURVIVOR_BREAKDOWN_ROUTE = "/survivor";
 const sectionHeadingClass =
-  "font-heading text-[0.6rem] uppercase tracking-[0.2em] text-white/50 leading-tight";
+  "font-heading text-[0.6rem] uppercase tracking-[0.2em] text-white leading-tight";
 
 export function SurvivorPoolCard({ prizeData }: SurvivorPoolCardProps) {
   return (
@@ -92,7 +92,7 @@ function SurvivorEliminationsTable({
   eliminations: SurvivorElimination[];
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-white/10 bg-[var(--surface)]">
+    <div className="card-surface overflow-hidden rounded-xl border border-white/10">
       <table className="w-full">
         <tbody>
           {eliminations.length > 0 ? (
@@ -160,7 +160,7 @@ function SurvivorTeamsSection({
             emptyMessage="All teams eliminated."
           />
         ) : (
-          <div className="max-h-48 overflow-y-auto rounded-xl border border-white/10 bg-[var(--surface)]">
+          <div className="card-surface max-h-48 overflow-y-auto rounded-xl border border-white/10">
             <table className="w-full">
               <tbody>
                 {survivingTeams.map((team, index) => (
@@ -221,7 +221,7 @@ function SurvivorTeamsSection({
             emptyMessage="All teams eliminated."
           />
         ) : (
-          <div className="rounded-xl border border-white/10 bg-[var(--surface)] py-6 text-center text-xs text-white/60">
+          <div className="card-surface rounded-xl border border-white/10 py-6 text-center text-xs text-white/60">
             All teams eliminated.
           </div>
         )

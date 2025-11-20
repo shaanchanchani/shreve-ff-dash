@@ -25,7 +25,7 @@ interface WinnerSummary {
 
 const WEEKLY_BREAKDOWN_ROUTE = "/weekly";
 const sectionHeadingClass =
-  "font-heading text-[0.6rem] uppercase tracking-[0.2em] text-white/50 leading-tight";
+  "font-heading text-[0.6rem] uppercase tracking-[0.2em] text-white leading-tight";
 
 export function WeeklyWinnersCard({ prizeData }: WeeklyWinnersCardProps) {
   return <WeeklyWinnersSummarySection prizeData={prizeData} />;
@@ -61,7 +61,7 @@ export function WeeklyWinnersSummarySection({
       className={cn("space-y-3", className)}
     >
       <p className={sectionHeadingClass}>Weekly top scores ($10)</p>
-      <div className="overflow-hidden rounded-xl border border-white/10 bg-[var(--surface)]">
+      <div className="card-surface overflow-hidden rounded-xl border border-white/10">
         {rows.length > 0 ? (
           <table className="w-full">
             <tbody>
@@ -78,7 +78,7 @@ export function WeeklyWinnersSummarySection({
                       <div className="flex items-center gap-2">
                         <TeamLogo logoURL={winner.logoURL} label={winner.teamName} />
                         <div className="min-w-0 flex items-center gap-1">
-                          <span className="font-heading flex-1 truncate text-[0.5rem] uppercase tracking-wide text-white/80">
+                          <span className="font-heading flex-1 truncate text-[0.5rem] uppercase tracking-wide text-white">
                             {winner.teamName}
                           </span>
                           <span className="font-field text-right text-[0.7rem] text-[var(--tide)]">
@@ -117,7 +117,7 @@ export function WeeklyWinnersBreakdownContent({
 
 function WeeklyWinnersTable({ winners }: { winners: WeeklyWinner[] }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-white/10 bg-[var(--surface)]">
+    <div className="card-surface overflow-hidden rounded-xl border border-white/10">
       <table className="w-full">
         <tbody>
           {winners.length > 0 ? (

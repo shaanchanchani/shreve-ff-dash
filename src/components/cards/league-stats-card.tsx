@@ -24,7 +24,7 @@ interface LongestTDCandidatesCardProps extends BaseStatsCardProps {
 }
 
 const sectionHeadingClass =
-  "font-heading text-[0.6rem] uppercase tracking-[0.2em] text-white/50 leading-tight";
+  "font-heading text-[0.6rem] uppercase tracking-[0.2em] text-white leading-tight";
 
 const formatPlayerName = (name: string) => {
   const parts = name.trim().split(/\s+/);
@@ -64,7 +64,7 @@ export function SeasonHighScoreCard({
     >
       <p className={sectionHeadingClass}>Season high ($25)</p>
       {prizeData.seasonHighScore ? (
-        <div className="overflow-hidden rounded-2xl border border-white/10 bg-[var(--surface)]">
+        <div className="card-surface overflow-hidden rounded-2xl border border-white/10">
           <div className="border-b border-white/10 p-3">
             <div className="flex items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2">
@@ -113,7 +113,7 @@ export function SeasonHighScoreCard({
                           />
                         ) : null}
                         <div className="min-w-0 flex-1">
-                          <div className="font-heading truncate text-[0.5rem] uppercase tracking-wide">
+                          <div className="font-heading truncate text-[0.5rem] uppercase tracking-wide text-white">
                             {formatPlayerName(player.name)}
                           </div>
                         </div>
@@ -148,10 +148,8 @@ export function UnluckyCandidatesCard({
       aria-label="Unlucky Candidates"
       className={cn("space-y-3", className)}
     >
-      <p className={sectionHeadingClass}>
-        Unlucky Candidates ($10)
-      </p>
-        <div className="overflow-hidden rounded-2xl border border-white/10 bg-[var(--surface)] text-[0.65rem]">
+      <p className={sectionHeadingClass}>Unlucky ($10)</p>
+        <div className="card-surface overflow-hidden rounded-2xl border border-white/10 text-[0.65rem]">
         <table className="w-full">
           <tbody>
             {prizeData.unluckyTeams.slice(0, 3).map((team, index, array) => (
@@ -163,7 +161,7 @@ export function UnluckyCandidatesCard({
                   <TeamLogo logoURL={team.logoURL} label={team.teamName} />
                 </td>
                 <td className="p-2">
-                  <span className="font-heading block text-[0.5rem] uppercase tracking-wide text-white/80">
+                  <span className="font-heading block text-[0.5rem] uppercase tracking-wide text-white">
                     {team.teamName}
                   </span>
                 </td>
@@ -193,7 +191,7 @@ export function LongestTDCandidatesCard({
       className={cn("space-y-3", className)}
     >
       <p className={sectionHeadingClass}>Longest TDs ($15)</p>
-      <div className="overflow-hidden rounded-2xl border border-white/10 bg-[var(--surface)] text-[0.6rem]">
+      <div className="card-surface overflow-hidden rounded-2xl border border-white/10 text-[0.6rem]">
         <table className="w-full">
           <tbody>
             {isLoadingLongest ? (
@@ -240,7 +238,7 @@ export function LongestTDCandidatesCard({
                         <TeamLogo label={card.data.player} />
                       )}
                       <div>
-                        <span className="font-heading text-[0.5rem] uppercase tracking-wide">
+                        <span className="font-heading text-[0.5rem] uppercase tracking-wide text-white">
                           {card.data.player}
                         </span>
                         <div className="font-heading text-[0.55rem] uppercase text-white/60">

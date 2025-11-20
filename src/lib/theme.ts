@@ -34,5 +34,4 @@ export const basePalette = {
   "--tide": "#f5f5f5",
   "--violet": "#f5f5f5",
   "--charcoal": "rgba(17, 17, 27, 0.95)",
-  "--surface": "rgba(16, 16, 24, 0.92)",
 } as CSSProperties;
