@@ -141,7 +141,7 @@ export default function Home() {
           }}
         />
 
-        <div className="relative z-10 mx-auto flex w-full max-w-3xl flex-col gap-10 px-5 pb-20 pt-10">
+        <div className="relative z-10 mx-auto flex w-full max-w-3xl flex-col gap-4 px-5 pb-20 pt-4">
           {error && (
             <div className="rounded-2xl border border-red-400/40 bg-red-900/30 px-4 py-3 text-sm text-red-50">
               {error}

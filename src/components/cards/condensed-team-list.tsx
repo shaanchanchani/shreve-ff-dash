@@ -37,7 +37,7 @@ export function CondensedTeamList({
                     <td className={`p-2 ${hasValueColumn ? "" : "w-full"}`}>
                       <div className="flex items-center gap-1.5">
                         <TeamLogo logoURL={item.logoURL} label={item.teamName} />
-                        <span className="font-heading text-[0.65rem] uppercase tracking-wide text-white/80">
+                        <span className="font-heading text-[0.5rem] uppercase tracking-wide text-white/80">
                           {item.teamName}
                         </span>
                       </div>

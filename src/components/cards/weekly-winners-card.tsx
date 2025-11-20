@@ -77,12 +77,12 @@ export function WeeklyWinnersSummarySection({
                     >
                       <div className="flex items-center gap-2">
                         <TeamLogo logoURL={winner.logoURL} label={winner.teamName} />
-                        <div className="min-w-0">
-                          <span className="font-heading block text-[0.65rem] uppercase tracking-wide text-white/80">
+                        <div className="min-w-0 flex items-center gap-1">
+                          <span className="font-heading flex-1 truncate text-[0.5rem] uppercase tracking-wide text-white/80">
                             {winner.teamName}
                           </span>
-                          <span className="font-field text-[0.7rem] text-[var(--tide)]">
-                            {winner.wins}W
+                          <span className="font-field text-right text-[0.7rem] text-[var(--tide)]">
+                            x{winner.wins}
                           </span>
                         </div>
                       </div>

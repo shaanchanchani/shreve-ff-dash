@@ -88,7 +88,7 @@ export function SeasonHighScoreCard({
           {prizeData.seasonHighScore.topPlayers &&
           prizeData.seasonHighScore.topPlayers.length > 0 ? (
             <div className="p-2">
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                   {prizeData.seasonHighScore.topPlayers.map(
                     (player) => (
                     <div
@@ -112,12 +112,12 @@ export function SeasonHighScoreCard({
                           />
                         ) : null}
                         <div className="min-w-0 flex-1">
-                          <div className="font-heading truncate text-[0.7rem] uppercase tracking-wide">
+                          <div className="font-heading truncate text-[0.5rem] uppercase tracking-wide">
                             {formatPlayerName(player.name)}
                           </div>
                         </div>
                       </div>
-                      <span className="ml-2 font-sports text-[0.7rem] text-[var(--ember)]">
+                      <span className="ml-2 font-field text-[0.7rem] text-[var(--ember)]">
                         {player.points.toFixed(1)}
                       </span>
                     </div>
@@ -162,12 +162,12 @@ export function UnluckyCandidatesCard({
                   <TeamLogo logoURL={team.logoURL} label={team.teamName} />
                 </td>
                 <td className="p-2">
-                  <span className="font-heading text-[0.7rem] uppercase tracking-wide">
+                  <span className="font-heading block text-[0.5rem] uppercase tracking-wide text-white/80">
                     {team.teamName}
                   </span>
                 </td>
                 <td className="p-2 text-right">
-                  <span className="font-sports text-[0.75rem] text-[var(--violet)]">
+                  <span className="font-field text-[0.7rem] text-[var(--violet)]">
                     {team.pointsAgainst.toFixed(1)}
                   </span>
                 </td>
@@ -241,7 +241,7 @@ export function LongestTDCandidatesCard({
                         <TeamLogo label={card.data.player} />
                       )}
                       <div>
-                        <span className="font-heading text-[0.7rem] uppercase tracking-wide">
+                        <span className="font-heading text-[0.5rem] uppercase tracking-wide">
                           {card.data.player}
                         </span>
                         <div className="font-heading text-[0.55rem] uppercase text-white/60">
@@ -251,19 +251,9 @@ export function LongestTDCandidatesCard({
                     </div>
                   </td>
                   <td className="p-2 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <span className="font-field text-[0.7rem] text-[var(--ember)]">
-                        {card.data.yards}
-                      </span>
-                      <span className="font-heading w-14 whitespace-nowrap text-[0.5rem] uppercase text-white/60">
-                        {card.label === "Rushing"
-                          ? "rush"
-                          : card.label === "Receiving"
-                            ? "rec"
-                            : "pass"}{" "}
-                        yds
-                      </span>
-                    </div>
+                    <span className="font-field text-[0.7rem] text-[var(--ember)]">
+                      {card.data.yards}
+                    </span>
                   </td>
                 </tr>
               ))
