@@ -7,12 +7,13 @@ import type {
   WeeklyWinner,
   EliminatedTeam,
   UnluckyTeam,
+  TeamStanding,
 } from '@/types/prizes';
 
 // Simple in-memory cache
 let cachedData: PrizeData | null = null;
 let cacheTimestamp = 0;
-const CACHE_DURATION = 2 * 60 * 60 * 1000; // 2 hours
+const CACHE_DURATION = 0; // Disabled for dev to ensure new fields populate
 
 
 interface BoxscoreRosterEntry {
@@ -67,7 +68,7 @@ export async function GET() {
     });
 
     const seasonId = 2025; // Updated to 2025 season
-    const currentWeek = 14; // Fetch all regular season weeks
+    const totalRegularSeasonWeeks = 14; // Should match TOTAL_REGULAR_SEASON_WEEKS in prize-calculations.ts
     
     // Get team names and logos first
     const teamIdToName: { [id: number]: string } = {};
@@ -86,7 +87,7 @@ export async function GET() {
     
     // Get all boxscores for the season in parallel (much faster)
     const boxscorePromises = [];
-    for (let week = 1; week <= currentWeek; week++) {
+    for (let week = 1; week <= totalRegularSeasonWeeks; week++) {
       boxscorePromises.push(
         client.getBoxscoreForWeek({
           seasonId,
@@ -106,11 +107,31 @@ export async function GET() {
     let seasonHighScore: HighScore | null = null;
     const weeklyHighScores: WeeklyWinner[] = [];
     const teamTotalPointsAgainst: { [teamName: string]: number } = {};
+    const teamStats: { [teamName: string]: TeamStanding } = {};
     const survivorEliminations: EliminatedTeam[] = [];
     const eliminatedTeams = new Set<string>();
+    const remainingMatchups: Array<{ homeTeamName: string; awayTeamName: string }> = [];
 
     allBoxscores.forEach(({ week, boxscore }) => {
       if (!boxscore || !Array.isArray(boxscore)) return;
+
+      // Calculate Week Median
+      const scores: number[] = [];
+      boxscore.forEach((m: { homeScore?: number; awayScore?: number }) => {
+        const h = m.homeScore || 0;
+        const a = m.awayScore || 0;
+        if (h > 0 || a > 0) {
+            scores.push(h);
+            scores.push(a);
+        }
+      });
+      
+      let median = 0;
+      if (scores.length > 0) {
+          scores.sort((a, b) => a - b);
+          const mid = Math.floor(scores.length / 2);
+          median = scores.length % 2 !== 0 ? scores[mid] : (scores[mid - 1] + scores[mid]) / 2;
+      }
       
       let weekHighScore: WeeklyWinner | null = null;
       let weekLowScore: EliminatedTeam | null = null;
@@ -131,29 +152,65 @@ export async function GET() {
         teamTotalPointsAgainst[homeTeamName] = (teamTotalPointsAgainst[homeTeamName] || 0) + awayScore;
         teamTotalPointsAgainst[awayTeamName] = (teamTotalPointsAgainst[awayTeamName] || 0) + homeScore;
 
-        // Check for season high score
-        if (!seasonHighScore || homeScore > seasonHighScore.score) {
-          seasonHighScore = { teamName: homeTeamName, score: homeScore, week, logoURL: homeTeamLogo };
+        // Initialize standings if not exists
+        if (!teamStats[homeTeamName]) {
+          teamStats[homeTeamName] = { teamName: homeTeamName, wins: 0, losses: 0, ties: 0, pointsFor: 0, logoURL: homeTeamLogo };
         }
-        if (!seasonHighScore || awayScore > seasonHighScore.score) {
-          seasonHighScore = { teamName: awayTeamName, score: awayScore, week, logoURL: awayTeamLogo };
-        }
-
-        // Check for weekly high score
-        if (!weekHighScore || homeScore > weekHighScore.score) {
-          weekHighScore = { week, teamName: homeTeamName, score: homeScore, logoURL: homeTeamLogo };
-        }
-        if (!weekHighScore || awayScore > weekHighScore.score) {
-          weekHighScore = { week, teamName: awayTeamName, score: awayScore, logoURL: awayTeamLogo };
+        if (!teamStats[awayTeamName]) {
+          teamStats[awayTeamName] = { teamName: awayTeamName, wins: 0, losses: 0, ties: 0, pointsFor: 0, logoURL: awayTeamLogo };
         }
 
-        // Check for weekly low score (for survivor) - only among teams not already eliminated
-        // Only consider scores > 0 to handle future weeks that haven't been played yet
-        if (!eliminatedTeams.has(homeTeamName) && homeScore > 0 && (!weekLowScore || homeScore < weekLowScore.score)) {
-          weekLowScore = { week, teamName: homeTeamName, score: homeScore, logoURL: homeTeamLogo };
-        }
-        if (!eliminatedTeams.has(awayTeamName) && awayScore > 0 && (!weekLowScore || awayScore < weekLowScore.score)) {
-          weekLowScore = { week, teamName: awayTeamName, score: awayScore, logoURL: awayTeamLogo };
+        // Only count stats for played games (non-zero scores)
+        // Note: This assumes games with 0-0 score haven't been played yet.
+        // In ESPN API, unplayed games often have 0 scores.
+        if (homeScore > 0 || awayScore > 0) {
+            teamStats[homeTeamName].pointsFor += homeScore;
+            teamStats[awayTeamName].pointsFor += awayScore;
+
+            if (homeScore > awayScore) {
+              teamStats[homeTeamName].wins += 1;
+              teamStats[awayTeamName].losses += 1;
+            } else if (awayScore > homeScore) {
+              teamStats[awayTeamName].wins += 1;
+              teamStats[homeTeamName].losses += 1;
+            } else {
+              teamStats[homeTeamName].ties += 1;
+              teamStats[awayTeamName].ties += 1;
+            }
+
+            // Median Result
+            if (homeScore > median) teamStats[homeTeamName].wins += 1;
+            else teamStats[homeTeamName].losses += 1;
+
+            if (awayScore > median) teamStats[awayTeamName].wins += 1;
+            else teamStats[awayTeamName].losses += 1;
+
+            // Check for season high score
+            if (!seasonHighScore || homeScore > seasonHighScore.score) {
+              seasonHighScore = { teamName: homeTeamName, score: homeScore, week, logoURL: homeTeamLogo };
+            }
+            if (!seasonHighScore || awayScore > seasonHighScore.score) {
+              seasonHighScore = { teamName: awayTeamName, score: awayScore, week, logoURL: awayTeamLogo };
+            }
+
+            // Check for weekly high score
+            if (!weekHighScore || homeScore > weekHighScore.score) {
+              weekHighScore = { week, teamName: homeTeamName, score: homeScore, logoURL: homeTeamLogo };
+            }
+            if (!weekHighScore || awayScore > weekHighScore.score) {
+              weekHighScore = { week, teamName: awayTeamName, score: awayScore, logoURL: awayTeamLogo };
+            }
+
+            // Check for weekly low score (for survivor) - only among teams not already eliminated
+            if (!eliminatedTeams.has(homeTeamName) && homeScore > 0 && (!weekLowScore || homeScore < weekLowScore.score)) {
+              weekLowScore = { week, teamName: homeTeamName, score: homeScore, logoURL: homeTeamLogo };
+            }
+            if (!eliminatedTeams.has(awayTeamName) && awayScore > 0 && (!weekLowScore || awayScore < weekLowScore.score)) {
+              weekLowScore = { week, teamName: awayTeamName, score: awayScore, logoURL: awayTeamLogo };
+            }
+        } else {
+          // Future game
+          remainingMatchups.push({ homeTeamName, awayTeamName });
         }
       });
 
@@ -229,11 +286,188 @@ export async function GET() {
       await addSeasonHighScorePlayers(seasonHighScore);
     }
 
+    // Calculate League Median Stats
+    let winsAboveMedian = 0;
+    let totalWins = 0;
+
+    allBoxscores.forEach(({ boxscore }) => {
+      if (!boxscore || !Array.isArray(boxscore)) return;
+      
+      // Collect all scores for this week
+      const weekScores: number[] = [];
+      const weekMatchups: { winnerScore: number }[] = [];
+
+      boxscore.forEach((matchup: { homeScore?: number; awayScore?: number }) => {
+        const home = matchup.homeScore || 0;
+        const away = matchup.awayScore || 0;
+        
+        // Only consider played games
+        if (home === 0 && away === 0) return;
+
+        weekScores.push(home);
+        weekScores.push(away);
+
+        // Identify winner score
+        if (home > away) weekMatchups.push({ winnerScore: home });
+        else if (away > home) weekMatchups.push({ winnerScore: away });
+      });
+
+      if (weekScores.length === 0) return;
+
+      // Calculate Median
+      // Sort scores ascending
+      weekScores.sort((a, b) => a - b);
+      const mid = Math.floor(weekScores.length / 2);
+      const median = weekScores.length % 2 !== 0
+        ? weekScores[mid]
+        : (weekScores[mid - 1] + weekScores[mid]) / 2;
+
+      // Check winners against median
+      weekMatchups.forEach(({ winnerScore }) => {
+        totalWins++;
+        if (winnerScore > median) {
+          winsAboveMedian++;
+        }
+      });
+    });
+
+    const leagueMedianStats = {
+      winsAboveMedian,
+      totalWins,
+      percentage: totalWins > 0 ? winsAboveMedian / totalWins : 0
+    };
+
+    // Playoff Probabilities Simulation
+    const SIMULATIONS = 2000;
+    const teamsList = Object.values(teamStats);
+    const playoffCounts: { [teamName: string]: number } = {};
+    const byeCounts: { [teamName: string]: number } = {};
+    
+    // Use median stats to adjust win probabilities
+    const medianWinProbability = leagueMedianStats.percentage; // e.g., ~0.8 means 80% of matchup winners also win median
+
+    teamsList.forEach(t => {
+        playoffCounts[t.teamName] = 0;
+        byeCounts[t.teamName] = 0;
+    });
+
+    if (remainingMatchups.length > 0) {
+      for (let i = 0; i < SIMULATIONS; i++) {
+        // Clone standings for this simulation
+        const simStandings: { [name: string]: TeamStanding } = {};
+        teamsList.forEach(t => {
+          simStandings[t.teamName] = { ...t };
+        });
+
+        // Simulate remaining games with Median Scoring Logic
+        remainingMatchups.forEach(m => {
+            const home = simStandings[m.homeTeamName];
+            const away = simStandings[m.awayTeamName];
+            
+            // Calculate Points For projection
+            // Correct for Game+Median record (wins+losses is approx 2x weeks played)
+            const homeGames = home.wins + home.losses + home.ties;
+            const awayGames = away.wins + away.losses + away.ties;
+
+            const homeAvg = homeGames > 0 ? (home.pointsFor / homeGames) * 2 : 100;
+            const awayAvg = awayGames > 0 ? (away.pointsFor / awayGames) * 2 : 100;
+            
+            home.pointsFor += homeAvg;
+            away.pointsFor += awayAvg;
+
+            // Determine Winner
+            const homeWinsMatchup = Math.random() > 0.5;
+            
+            // Update Matchup W/L
+            if (homeWinsMatchup) {
+                home.wins++;
+                away.losses++;
+            } else {
+                away.wins++;
+                home.losses++;
+            }
+
+            // League Median Logic
+            // If you win your matchup, you have a `medianWinProbability` chance of also beating the median
+            // If you lose your matchup, you have a (1 - medianWinProbability) chance of beating the median (inverse correlation approximately)
+            
+            // Home Team Median Check
+            if (homeWinsMatchup) {
+                if (Math.random() < medianWinProbability) home.wins++; // Win vs Median
+                else home.losses++; // Lose vs Median
+            } else {
+                // Home lost matchup
+                if (Math.random() < (1 - medianWinProbability)) home.wins++; // Win vs Median
+                else home.losses++; // Lose vs Median
+            }
+
+             // Away Team Median Check
+            if (!homeWinsMatchup) { // Away Won Matchup
+                if (Math.random() < medianWinProbability) away.wins++;
+                else away.losses++;
+            } else {
+                // Away lost matchup
+                 if (Math.random() < (1 - medianWinProbability)) away.wins++;
+                 else away.losses++;
+            }
+        });
+
+        // Sort standings
+        const sortedSim = Object.values(simStandings).sort((a, b) => {
+          const aScore = a.wins + 0.5 * a.ties;
+          const bScore = b.wins + 0.5 * b.ties;
+          if (bScore !== aScore) return bScore - aScore;
+          return b.pointsFor - a.pointsFor;
+        });
+
+        // Top 6 make playoffs
+        sortedSim.slice(0, 6).forEach((t, index) => {
+            playoffCounts[t.teamName]++;
+            // Top 2 get bye
+            if (index < 2) {
+                byeCounts[t.teamName]++;
+            }
+        });
+      }
+
+      // Assign probabilities
+      teamsList.forEach(t => {
+         t.playoffOdds = playoffCounts[t.teamName] / SIMULATIONS;
+         t.byeOdds = byeCounts[t.teamName] / SIMULATIONS;
+         t.clinchedPlayoffs = t.playoffOdds === 1;
+         t.clinchedBye = t.byeOdds === 1;
+      });
+    } else {
+        // No games remaining, odds are 0 or 1 based on current standings
+        const sortedFinal = [...teamsList].sort((a, b) => {
+          const aScore = a.wins + 0.5 * a.ties;
+          const bScore = b.wins + 0.5 * b.ties;
+          if (bScore !== aScore) return bScore - aScore;
+          return b.pointsFor - a.pointsFor;
+        });
+        
+        sortedFinal.forEach((t, idx) => {
+            t.playoffOdds = idx < 6 ? 1 : 0;
+            t.byeOdds = idx < 2 ? 1 : 0;
+            t.clinchedPlayoffs = idx < 6;
+            t.clinchedBye = idx < 2;
+        });
+    }
+
+    const standings: TeamStanding[] = teamsList.sort((a, b) => {
+      const aScore = a.wins + 0.5 * a.ties;
+      const bScore = b.wins + 0.5 * b.ties;
+      if (bScore !== aScore) return bScore - aScore;
+      return b.pointsFor - a.pointsFor;
+    });
+
     const prizeData: PrizeData = {
       seasonHighScore,
       weeklyHighScores,
       survivorEliminations,
-      unluckyTeams
+      unluckyTeams,
+      standings,
+      leagueMedianStats
     };
 
     // Cache the result

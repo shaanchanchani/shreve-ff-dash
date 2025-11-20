@@ -35,6 +35,19 @@ export interface UnluckyTeam {
   logoURL?: string;
 }
 
+export interface TeamStanding {
+  teamName: string;
+  wins: number;
+  losses: number;
+  ties: number;
+  pointsFor: number;
+  logoURL?: string;
+  playoffOdds?: number; // 0-1 percentage
+  byeOdds?: number; // 0-1 percentage
+  clinchedPlayoffs?: boolean;
+  clinchedBye?: boolean;
+}
+
 export interface TouchdownData {
   player: string;
   yards: number;
@@ -52,11 +65,19 @@ export interface LongestTDs {
   longest_started_passing_td?: TouchdownData;
 }
 
+export interface LeagueMedianStat {
+  winsAboveMedian: number;
+  totalWins: number;
+  percentage: number;
+}
+
 export interface PrizeData {
   seasonHighScore: HighScore | null;
   weeklyHighScores: WeeklyWinner[];
   survivorEliminations: EliminatedTeam[];
   unluckyTeams: UnluckyTeam[];
+  standings: TeamStanding[];
+  leagueMedianStats?: LeagueMedianStat;
 }
 
 export type LongestKey =

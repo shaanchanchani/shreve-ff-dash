@@ -267,3 +267,33 @@ export function LongestTDCandidatesCard({
     </section>
   );
 }
+
+export function LeagueMedianCard({
+  prizeData,
+  className,
+}: BaseStatsCardProps) {
+  if (!prizeData.leagueMedianStats) return null;
+  const stats = prizeData.leagueMedianStats;
+
+  return (
+    <section
+      aria-label="League Median"
+      className={cn("space-y-3", className)}
+    >
+      <p className={sectionHeadingClass}>Median Correlation</p>
+      <div className="card-surface overflow-hidden rounded-2xl border border-white/10 p-4">
+        <div className="flex flex-col items-center gap-1">
+           <div className="text-[10px] text-white/50 text-center leading-snug uppercase tracking-wide">
+              Win Matchup &gt; Score Median
+           </div>
+           <div className="mt-2 font-field text-3xl text-[var(--neon-green)]">
+              {(stats.percentage * 100).toFixed(1)}%
+           </div>
+           <div className="text-[9px] font-mono text-white/30 uppercase tracking-widest">
+              {stats.winsAboveMedian} of {stats.totalWins} Wins
+           </div>
+        </div>
+      </div>
+    </section>
+  );
+}

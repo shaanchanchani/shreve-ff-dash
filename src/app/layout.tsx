@@ -3,6 +3,7 @@ import { Geist } from "next/font/google";
 import { JetBrains_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
+import { MobileDock } from "@/components/navigation/mobile-dock";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -44,6 +45,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${jetbrainsMono.variable} antialiased`}
       >
         {children}
+        <MobileDock />
       </body>
     </html>
   );

@@ -93,7 +93,7 @@ export default function Home() {
             className="h-full"
           />
         </div>
-
+        
         <div className="mx-auto w-full max-w-sm">
           <WeeklyWinnersSummarySection prizeData={prizeData} />
         </div>
