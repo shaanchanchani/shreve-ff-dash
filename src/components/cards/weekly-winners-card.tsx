@@ -5,7 +5,8 @@ import {
   DASHBOARD_RETURN_CARD_STORAGE_KEY,
   WEEKLY_CARD_ID,
 } from "@/lib/dashboard-navigation";
-import { CondensedTeamList } from "./condensed-team-list";
+import { ListFooterButton } from "./list-footer-button";
+import { cn } from "@/lib/utils";
 
 interface WeeklyWinnersCardProps {
   prizeData: PrizeData;
@@ -25,16 +26,17 @@ interface WinnerSummary {
 const WEEKLY_BREAKDOWN_ROUTE = "/weekly";
 
 export function WeeklyWinnersCard({ prizeData }: WeeklyWinnersCardProps) {
-  return (
-    <section aria-label="Weekly Winners">
-      <WeeklyWinnersSummarySection prizeData={prizeData} />
-    </section>
-  );
+  return <WeeklyWinnersSummarySection prizeData={prizeData} />;
+}
+
+interface WeeklyWinnersSummarySectionProps extends WeeklyWinnersCardProps {
+  className?: string;
 }
 
 export function WeeklyWinnersSummarySection({
   prizeData,
-}: WeeklyWinnersCardProps) {
+  className,
+}: WeeklyWinnersSummarySectionProps) {
   const router = useRouter();
   const winners = getSortedWinners(prizeData.weeklyHighScores);
   const uniqueWinners = getUniqueWinnerSummaries(winners);
@@ -49,26 +51,60 @@ export function WeeklyWinnersSummarySection({
     router.push(WEEKLY_BREAKDOWN_ROUTE);
   };
 
-  const condensedItems = uniqueWinners.map((winner) => ({
-    teamName: winner.teamName,
-    logoURL: winner.logoURL,
-    value: `${winner.wins}W`,
-  }));
+  const rows = chunkWinners(uniqueWinners, 2);
 
   return (
-    <>
-      <p className="mb-3 text-sm uppercase text-white/60">
+    <section
+      aria-label="Weekly Winners"
+      className={cn("space-y-2", className)}
+    >
+      <p className="text-[0.6rem] uppercase tracking-[0.2em] text-white/50">
         Weekly Winners ($10)
       </p>
-      <div className="mt-6">
-        <CondensedTeamList
-          items={condensedItems}
-          footerLabel="See Week Breakdown"
-          onFooterClick={navigateToBreakdown}
-          emptyMessage="No weeks recorded yet."
-        />
+      <div className="mt-4 overflow-hidden rounded-xl border border-white/10 bg-white/5">
+        {rows.length > 0 ? (
+          <table className="w-full">
+            <tbody>
+              {rows.map((row, rowIndex) => (
+                <tr
+                  key={`row-${rowIndex}`}
+                  className={rowIndex < rows.length - 1 ? "border-b border-white/10" : ""}
+                >
+                  {row.map((winner) => (
+                    <td
+                      key={winner.teamName}
+                      className="px-3 py-2.5 align-top"
+                    >
+                      <div className="flex items-center gap-2">
+                        <TeamLogo logoURL={winner.logoURL} label={winner.teamName} />
+                        <div className="min-w-0">
+                          <span className="font-heading block text-[0.65rem] uppercase tracking-wide text-white/80">
+                            {winner.teamName}
+                          </span>
+                          <span className="font-field text-[0.7rem] text-[var(--tide)]">
+                            {winner.wins}W
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+                  ))}
+                  {row.length < 2 && <td className="px-3 py-2.5" />}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div className="px-4 py-6 text-center text-[0.65rem] text-white/60">
+            No weeks recorded yet.
+          </div>
+        )}
+        <div className="border-t border-white/5">
+          <ListFooterButton onClick={navigateToBreakdown}>
+            See Week Breakdown
+          </ListFooterButton>
+        </div>
       </div>
-    </>
+    </section>
   );
 }
 
@@ -90,21 +126,21 @@ function WeeklyWinnersTable({ winners }: { winners: WeeklyWinner[] }) {
                 key={winner.week}
                 className={`hover:bg-white/5 ${index < winners.length - 1 ? "border-b border-white/5" : ""}`}
               >
-                <td className="p-3">
-                  <span className="font-heading text-xs uppercase text-white/50">
+                <td className="px-3 py-2.5">
+                  <span className="font-heading text-[0.6rem] uppercase text-white/50">
                     W{winner.week}
                   </span>
                 </td>
-                <td className="p-3">
+                <td className="px-3 py-2.5">
                   <div className="flex items-center gap-2">
                     <TeamLogo logoURL={winner.logoURL} label={winner.teamName} />
-                    <span className="text-sm text-white/80">
+                    <span className="font-heading text-[0.68rem] uppercase tracking-wide text-white/80">
                       {winner.teamName}
                     </span>
                   </div>
                 </td>
-                <td className="p-3 text-right">
-                  <span className="font-sports text-xl text-[var(--ember)]">
+                <td className="px-3 py-2.5 text-right">
+                  <span className="font-sports text-[0.75rem] text-[var(--ember)]">
                     {Math.round(winner.score)}
                   </span>
                 </td>
@@ -112,7 +148,7 @@ function WeeklyWinnersTable({ winners }: { winners: WeeklyWinner[] }) {
             ))
           ) : (
             <tr>
-              <td className="p-3 text-center text-sm text-white/60" colSpan={3}>
+              <td className="px-3 py-2.5 text-center text-[0.65rem] text-white/60" colSpan={3}>
                 No weeks recorded yet.
               </td>
             </tr>
@@ -143,4 +179,12 @@ function getUniqueWinnerSummaries(winners: WeeklyWinner[]): WinnerSummary[] {
     if (b.wins !== a.wins) return b.wins - a.wins;
     return a.teamName.localeCompare(b.teamName);
   });
+}
+
+function chunkWinners(winners: WinnerSummary[], columns: number) {
+  const rows: WinnerSummary[][] = [];
+  for (let index = 0; index < winners.length; index += columns) {
+    rows.push(winners.slice(index, index + columns));
+  }
+  return rows;
 }

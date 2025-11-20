@@ -16,10 +16,10 @@ export function PayoutPictureCard({
       <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
         <table className="w-full">
           <thead className="border-b border-white/10">
-            <tr className="text-xs uppercase text-white/60">
-              <th className="p-3 text-left">Team</th>
-              <th className="p-3 text-right">Min</th>
-              <th className="p-3 text-right">Max</th>
+            <tr className="text-[0.58rem] uppercase tracking-[0.2em] text-white/60">
+              <th className="px-3 py-2.5 text-left">Team</th>
+              <th className="px-3 py-2.5 text-right">Min</th>
+              <th className="px-3 py-2.5 text-right">Max</th>
             </tr>
           </thead>
           <tbody>
@@ -28,24 +28,24 @@ export function PayoutPictureCard({
                 key={teamName}
                 className={`border-white/5 hover:bg-white/5 ${index < teamSummaries.length - 1 ? "border-b" : ""}`}
               >
-                <td className="p-3">
+                <td className="px-3 py-2.5">
                   <div className="flex items-center gap-2">
                     <TeamLogo
                       logoURL={getTeamLogo(prizeData, teamName)}
                       label={teamName}
                     />
-                    <span className="font-heading text-sm uppercase">
+                    <span className="font-heading text-[0.68rem] uppercase tracking-wide">
                       {teamName}
                     </span>
                   </div>
                 </td>
-                <td className="p-3 text-right">
-                  <span className="font-sports text-xl text-[var(--tide)]">
+                <td className="px-3 py-2.5 text-right">
+                  <span className="font-sports text-[0.75rem] text-[var(--tide)]">
                     {formatCurrency(minPayout)}
                   </span>
                 </td>
-                <td className="p-3 text-right">
-                  <span className="font-sports text-xl text-[var(--ember)]">
+                <td className="px-3 py-2.5 text-right">
+                  <span className="font-sports text-[0.75rem] text-[var(--ember)]">
                     {formatCurrency(maxPayout)}
                   </span>
                 </td>

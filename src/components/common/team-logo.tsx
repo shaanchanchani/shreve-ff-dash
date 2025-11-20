@@ -9,7 +9,7 @@ interface TeamLogoProps {
 
 export function TeamLogo({ logoURL, label, className }: TeamLogoProps) {
   const sharedClass = cn(
-    "h-9 w-9 rounded-full border border-white/20 bg-white/5 object-cover",
+    "h-7 w-7 rounded-full border border-white/20 bg-white/5 object-cover",
     className,
   );
 
@@ -22,7 +22,7 @@ export function TeamLogo({ logoURL, label, className }: TeamLogoProps) {
   return (
     <span
       className={cn(
-        "font-heading grid place-items-center text-xs uppercase text-white/70",
+        "font-heading grid place-items-center text-[0.55rem] uppercase text-white/70",
         sharedClass,
       )}
     >

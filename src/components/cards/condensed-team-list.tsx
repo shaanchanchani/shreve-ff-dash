@@ -35,16 +35,16 @@ export function CondensedTeamList({
                     className={`hover:bg-white/5 ${index < items.length - 1 ? "border-b border-white/5" : ""}`}
                   >
                     <td className={`p-2 ${hasValueColumn ? "" : "w-full"}`}>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
                         <TeamLogo logoURL={item.logoURL} label={item.teamName} />
-                        <span className="text-sm text-white/80">
+                        <span className="font-heading text-[0.65rem] uppercase tracking-wide text-white/80">
                           {item.teamName}
                         </span>
                       </div>
                     </td>
                     {hasValueColumn && (
                       <td className="p-2 text-right">
-                        <span className="font-field text-xl text-[var(--tide)]">
+                        <span className="font-field text-[0.72rem] text-[var(--tide)]">
                           {item.value}
                         </span>
                       </td>
@@ -60,7 +60,7 @@ export function CondensedTeamList({
         </>
       ) : (
         <>
-          <div className="px-4 py-6 text-center text-sm text-white/60">
+          <div className="px-4 py-6 text-center text-xs text-white/60">
             {emptyMessage}
           </div>
           <ListFooterButton onClick={onFooterClick}>

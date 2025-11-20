@@ -26,8 +26,8 @@ export function HybridPlayerLogo({
   const playerHeadshotURL = playerName ? playerHeadshots[playerName] : null;
 
   return (
-    <div className={cn("relative h-10 w-10", className)}>
-      <div className="absolute left-0 top-0 z-10 h-6 w-6">
+    <div className={cn("relative h-8 w-8", className)}>
+      <div className="absolute left-0 top-0 z-10 h-5 w-5">
         {teamLogoURL ? (
           <img
             src={teamLogoURL}
@@ -35,13 +35,13 @@ export function HybridPlayerLogo({
             className="h-full w-full rounded-full object-cover"
           />
         ) : (
-          <span className="font-heading grid h-full w-full place-items-center rounded-full bg-white/5 text-xs uppercase text-white/70">
+          <span className="font-heading grid h-full w-full place-items-center rounded-full bg-white/5 text-[0.55rem] uppercase text-white/70">
             {teamLabel?.slice(0, 2)}
           </span>
         )}
       </div>
 
-      <div className="absolute bottom-0 right-0 z-20 h-8 w-8">
+      <div className="absolute bottom-0 right-0 z-20 h-6 w-6">
         {playerHeadshotURL ? (
           <img
             src={playerHeadshotURL}

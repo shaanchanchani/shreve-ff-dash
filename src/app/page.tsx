@@ -3,8 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePrizeDashboard } from "@/hooks/use-prize-dashboard";
 import { PayoutPictureCard } from "@/components/cards/payout-picture-card";
-import { LeagueStatsCard } from "@/components/cards/league-stats-card";
-import { WeeklySurvivorCard } from "@/components/cards/weekly-survivor-card";
+import {
+  LongestTDCandidatesCard,
+  SeasonHighScoreCard,
+  UnluckyCandidatesCard,
+} from "@/components/cards/league-stats-card";
+import { WeeklyWinnersSummarySection } from "@/components/cards/weekly-winners-card";
+import { SurvivorSummarySection } from "@/components/cards/survivor-pool-card";
 import {
   LeagueCardSkeleton,
   PayoutCardSkeleton,
@@ -73,13 +78,25 @@ export default function Home() {
     }
 
     return (
-      <div className="space-y-10">
-        <LeagueStatsCard
-          prizeData={prizeData}
-          longestCards={longestCards}
-          isLoadingLongest={isLoadingLongest}
-        />
-        <WeeklySurvivorCard prizeData={prizeData} />
+      <div className="flex flex-col gap-6">
+        <div className="grid grid-cols-2 gap-4 max-[360px]:grid-cols-1">
+          <SeasonHighScoreCard prizeData={prizeData} className="h-full" />
+          <SurvivorSummarySection prizeData={prizeData} className="h-full" />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 max-[360px]:grid-cols-1">
+          <UnluckyCandidatesCard prizeData={prizeData} className="h-full" />
+          <LongestTDCandidatesCard
+            prizeData={prizeData}
+            longestCards={longestCards}
+            isLoadingLongest={isLoadingLongest}
+            className="h-full"
+          />
+        </div>
+
+        <div className="mx-auto w-full max-w-sm">
+          <WeeklyWinnersSummarySection prizeData={prizeData} />
+        </div>
       </div>
     );
   }, [isLoadingLongest, isLoadingPrize, longestCards, prizeData]);
@@ -107,7 +124,7 @@ export default function Home() {
     <div className={fontVariableClasses}>
       <main
         style={basePalette}
-        className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_#1d0d28,_#050308_65%)] text-[var(--mist)]"
+        className="relative min-h-screen overflow-x-hidden bg-[radial-gradient(circle_at_top,_#1d0d28,_#050308_65%)] text-[var(--mist)]"
       >
         <div
           className="pointer-events-none absolute inset-0 opacity-30"

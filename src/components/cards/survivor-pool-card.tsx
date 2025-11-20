@@ -8,6 +8,7 @@ import {
 } from "@/lib/dashboard-navigation";
 import { CondensedTeamList } from "./condensed-team-list";
 import { ListFooterButton } from "./list-footer-button";
+import { cn } from "@/lib/utils";
 
 interface SurvivorPoolCardProps {
   prizeData: PrizeData;
@@ -30,7 +31,14 @@ export function SurvivorPoolCard({ prizeData }: SurvivorPoolCardProps) {
   );
 }
 
-export function SurvivorSummarySection({ prizeData }: SurvivorPoolCardProps) {
+interface SurvivorSummarySectionProps extends SurvivorPoolCardProps {
+  className?: string;
+}
+
+export function SurvivorSummarySection({
+  prizeData,
+  className,
+}: SurvivorSummarySectionProps) {
   const router = useRouter();
   const survivingTeams = buildSurvivingTeams(prizeData);
 
@@ -45,18 +53,21 @@ export function SurvivorSummarySection({ prizeData }: SurvivorPoolCardProps) {
   };
 
   return (
-    <>
-      <p className="mb-3 text-sm uppercase text-white/60">
+    <section
+      aria-label="Survivor Pool"
+      className={cn("space-y-2", className)}
+    >
+      <p className="text-[0.6rem] uppercase tracking-[0.2em] text-white/50">
         Survivor Pool ($10)
       </p>
 
-      <div className="mt-6">
+      <div className="mt-4">
         <SurvivorTeamsSection
           survivingTeams={survivingTeams}
           onBreakdown={navigateToBreakdown}
         />
       </div>
-    </>
+    </section>
   );
 }
 
@@ -90,24 +101,24 @@ function SurvivorEliminationsTable({
                 key={elimination.week}
                 className={`hover:bg-white/5 ${index < eliminations.length - 1 ? "border-b border-white/5" : ""}`}
               >
-                <td className="p-3">
-                  <span className="font-heading text-xs uppercase text-white/50">
+                <td className="px-3 py-2.5">
+                  <span className="font-heading text-[0.65rem] uppercase text-white/50">
                     W{elimination.week}
                   </span>
                 </td>
-                <td className="p-3">
+                <td className="px-3 py-2.5">
                   <div className="flex items-center gap-2">
                     <TeamLogo
                       logoURL={elimination.logoURL}
                       label={elimination.teamName}
                     />
-                    <span className="text-sm text-white/80">
+                    <span className="font-heading text-[0.65rem] uppercase tracking-wide text-white/80">
                       {elimination.teamName}
                     </span>
                   </div>
                 </td>
-                <td className="p-3 text-right">
-                  <span className="font-sports text-xl text-[var(--ember)]">
+                <td className="px-3 py-2.5 text-right">
+                  <span className="font-sports text-[0.72rem] text-[var(--ember)]">
                     {Math.round(elimination.score)}
                   </span>
                 </td>
@@ -115,7 +126,7 @@ function SurvivorEliminationsTable({
             ))
           ) : (
             <tr>
-              <td className="p-3 text-center text-sm text-white/60" colSpan={3}>
+              <td className="px-3 py-2.5 text-center text-xs text-white/60" colSpan={3}>
                 No eliminations yet.
               </td>
             </tr>
@@ -163,7 +174,7 @@ function SurvivorTeamsSection({
                           logoURL={team.logoURL}
                           label={team.teamName}
                         />
-                        <span className="text-sm text-white/80">
+                        <span className="font-heading text-[0.65rem] uppercase tracking-wide text-white/80">
                           {team.teamName}
                         </span>
                       </div>
@@ -183,15 +194,15 @@ function SurvivorTeamsSection({
                 label={survivingTeams[0].teamName}
               />
               <div>
-                <div className="font-field text-xl uppercase text-[var(--ember)]">
+                <div className="font-field text-[0.7rem] uppercase text-[var(--ember)]">
                   {survivingTeams[0].teamName}
                 </div>
-                <div className="font-heading text-sm uppercase text-green-400">
+                <div className="font-heading text-[0.6rem] uppercase text-green-400">
                   Survivor Winner!
                 </div>
               </div>
             </div>
-            <div className="font-sports text-2xl text-[var(--tide)]">
+            <div className="font-sports text-[0.65rem] text-[var(--tide)]">
               Wins $10!
             </div>
           </div>
@@ -210,7 +221,7 @@ function SurvivorTeamsSection({
             emptyMessage="All teams eliminated."
           />
         ) : (
-          <div className="rounded-xl border border-white/10 bg-white/5 py-6 text-center text-white/60">
+          <div className="rounded-xl border border-white/10 bg-white/5 py-6 text-center text-xs text-white/60">
             All teams eliminated.
           </div>
         )
