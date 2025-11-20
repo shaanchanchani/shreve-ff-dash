@@ -22,6 +22,8 @@ interface SurvivingTeam {
 }
 
 const SURVIVOR_BREAKDOWN_ROUTE = "/survivor";
+const sectionHeadingClass =
+  "font-heading text-[0.6rem] uppercase tracking-[0.2em] text-white/50 leading-tight";
 
 export function SurvivorPoolCard({ prizeData }: SurvivorPoolCardProps) {
   return (
@@ -55,13 +57,11 @@ export function SurvivorSummarySection({
   return (
     <section
       aria-label="Survivor Pool"
-      className={cn("space-y-2", className)}
+      className={cn("space-y-3", className)}
     >
-      <p className="text-[0.6rem] uppercase tracking-[0.2em] text-white/50">
-        Survivor Pool ($10)
-      </p>
+      <p className={sectionHeadingClass}>Survivors ($10)</p>
 
-      <div className="mt-4">
+      <div>
         <SurvivorTeamsSection
           survivingTeams={survivingTeams}
           onBreakdown={navigateToBreakdown}
@@ -92,7 +92,7 @@ function SurvivorEliminationsTable({
   eliminations: SurvivorElimination[];
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-white/10 bg-white/5">
+    <div className="overflow-hidden rounded-xl border border-white/10 bg-[var(--surface)]">
       <table className="w-full">
         <tbody>
           {eliminations.length > 0 ? (
@@ -155,12 +155,12 @@ function SurvivorTeamsSection({
         onBreakdown ? (
           <CondensedTeamList
             items={condensedItems}
-            footerLabel="See Week Breakdown"
+            footerLabel="See Weekly eliminations"
             onFooterClick={onBreakdown}
             emptyMessage="All teams eliminated."
           />
         ) : (
-          <div className="max-h-48 overflow-y-auto rounded-xl border border-white/10 bg-white/5">
+          <div className="max-h-48 overflow-y-auto rounded-xl border border-white/10 bg-[var(--surface)]">
             <table className="w-full">
               <tbody>
                 {survivingTeams.map((team, index) => (
@@ -208,7 +208,7 @@ function SurvivorTeamsSection({
           </div>
           {onBreakdown && (
             <ListFooterButton onClick={onBreakdown}>
-              See Week Breakdown
+              See Weekly eliminations
             </ListFooterButton>
           )}
         </div>
@@ -216,12 +216,12 @@ function SurvivorTeamsSection({
         onBreakdown ? (
           <CondensedTeamList
             items={[]}
-            footerLabel="See Week Breakdown"
+            footerLabel="See Weekly eliminations"
             onFooterClick={onBreakdown}
             emptyMessage="All teams eliminated."
           />
         ) : (
-          <div className="rounded-xl border border-white/10 bg-white/5 py-6 text-center text-xs text-white/60">
+          <div className="rounded-xl border border-white/10 bg-[var(--surface)] py-6 text-center text-xs text-white/60">
             All teams eliminated.
           </div>
         )

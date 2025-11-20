@@ -3,7 +3,7 @@ export const PayoutCardSkeleton = () => (
     <div className="mb-5 flex items-center justify-between">
       <div className="h-6 w-40 rounded bg-white/10" />
     </div>
-    <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+    <div className="overflow-hidden rounded-2xl border border-white/10 bg-[var(--surface)]">
       <table className="w-full">
         <thead className="border-b border-white/10">
           <tr className="text-xs">
@@ -48,11 +48,11 @@ export const LeagueCardSkeleton = () => (
   <section className="animate-pulse space-y-5">
     <div className="mb-5 flex flex-col gap-3">
       <div className="h-6 w-48 rounded bg-white/10" />
-      <div className="h-32 rounded-2xl border border-white/10 bg-white/5" />
+      <div className="h-32 rounded-2xl border border-white/10 bg-[var(--surface)]" />
     </div>
     <div className="mb-3 h-5 w-40 rounded bg-white/10" />
 
-    <div className="mb-5 rounded-xl border border-white/10 bg-white/5">
+    <div className="mb-5 rounded-xl border border-white/10 bg-[var(--surface)]">
       <table className="w-full">
         <tbody>
           {Array.from({ length: 3 }, (_, index) => (
@@ -76,7 +76,7 @@ export const LeagueCardSkeleton = () => (
     </div>
 
     <div className="h-5 w-40 rounded bg-white/10" />
-    <div className="mt-3 rounded-xl border border-white/10 bg-white/5">
+    <div className="mt-3 rounded-xl border border-white/10 bg-[var(--surface)]">
       <table className="w-full">
         <tbody>
           {Array.from({ length: 3 }, (_, index) => (
@@ -112,7 +112,7 @@ export const WeeklySurvivorSkeleton = () => (
     <div className="mb-3 h-4 w-32 rounded bg-white/10" />
     <div className="mt-6">
       <div className="mb-3 h-5 w-40 rounded bg-white/10" />
-      <div className="rounded-xl border border-white/10 bg-white/5">
+      <div className="rounded-xl border border-white/10 bg-[var(--surface)]">
         <table className="w-full">
           <tbody>
             {Array.from({ length: 3 }, (_, index) => (
@@ -134,7 +134,7 @@ export const WeeklySurvivorSkeleton = () => (
           </tbody>
         </table>
       </div>
-      <div className="mt-6 h-11 rounded-full border border-white/10 bg-white/5" />
+      <div className="mt-6 h-11 rounded-full border border-white/10 bg-[var(--surface)]" />
     </div>
     <div className="my-8 h-px w-full bg-white/10" />
     <div>
@@ -143,7 +143,7 @@ export const WeeklySurvivorSkeleton = () => (
         {Array.from({ length: 4 }, (_, index) => (
           <div
             key={index}
-            className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
+            className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[var(--surface)] px-4 py-3"
           >
             <div className="h-9 w-9 rounded-full bg-white/10" />
             <div className="flex-1 space-y-1">
@@ -153,7 +153,7 @@ export const WeeklySurvivorSkeleton = () => (
           </div>
         ))}
       </div>
-      <div className="mt-6 h-11 rounded-full border border-white/10 bg-white/5" />
+      <div className="mt-6 h-11 rounded-full border border-white/10 bg-[var(--surface)]" />
     </div>
   </section>
 );
@@ -161,7 +161,7 @@ export const WeeklySurvivorSkeleton = () => (
 export const WeeklyBreakdownSkeleton = () => (
   <section className="animate-pulse space-y-5">
     <div className="mb-3 h-4 w-32 rounded bg-white/10" />
-    <div className="overflow-hidden rounded-xl border border-white/10 bg-white/5">
+    <div className="overflow-hidden rounded-xl border border-white/10 bg-[var(--surface)]">
       <table className="w-full">
         <tbody>
           {Array.from({ length: 6 }, (_, index) => (
@@ -196,7 +196,7 @@ export const SurvivorCardSkeleton = () => (
       <div className="h-6 w-8 rounded bg-white/10" />
     </div>
     <div className="mb-6 h-4 w-3/4 rounded bg-white/10" />
-    <div className="mb-6 overflow-hidden rounded-xl border border-white/10 bg-white/5">
+    <div className="mb-6 overflow-hidden rounded-xl border border-white/10 bg-[var(--surface)]">
       <table className="w-full">
         <tbody>
           {Array.from({ length: 8 }, (_, index) => (
@@ -226,7 +226,7 @@ export const SurvivorCardSkeleton = () => (
     </div>
 
     <div className="mb-3 h-5 w-36 rounded bg-white/10" />
-    <div className="max-h-40 overflow-hidden rounded-xl border border-white/10 bg-white/5">
+    <div className="max-h-40 overflow-hidden rounded-xl border border-white/10 bg-[var(--surface)]">
       <table className="w-full">
         <tbody>
           {Array.from({ length: 4 }, (_, index) => (

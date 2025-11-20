@@ -13,7 +13,7 @@ export function PayoutPictureCard({
 }: PayoutPictureCardProps) {
   return (
     <section aria-label="Projected Payouts">
-      <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+      <div className="overflow-hidden rounded-2xl border border-white/10 bg-[var(--surface)]">
         <table className="w-full">
           <thead className="border-b border-white/10">
             <tr className="text-[0.58rem] uppercase tracking-[0.2em] text-white/60">

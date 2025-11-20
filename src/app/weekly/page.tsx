@@ -86,24 +86,10 @@ export default function WeeklyBreakdownPage() {
     <div className={fontVariableClasses}>
       <main
         style={basePalette}
-        className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_#1d0d28,_#050308_65%)] text-[var(--mist)]"
+        className="relative min-h-screen overflow-hidden bg-black text-[var(--mist)]"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        <div
-          className="pointer-events-none absolute inset-0 opacity-30"
-          style={{
-            background:
-              "radial-gradient(circle at 15% 20%, rgba(248, 170, 75, 0.35), transparent 45%), radial-gradient(circle at 80% 0%, rgba(108, 92, 231, 0.35), transparent 50%)",
-          }}
-        />
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{
-            backgroundImage:
-              "linear-gradient(120deg, rgba(255,255,255,0.03) 0%, transparent 55%)",
-          }}
-        />
 
         <button
           type="button"

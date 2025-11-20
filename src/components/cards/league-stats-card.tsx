@@ -23,6 +23,9 @@ interface LongestTDCandidatesCardProps extends BaseStatsCardProps {
   isLoadingLongest: boolean;
 }
 
+const sectionHeadingClass =
+  "font-heading text-[0.6rem] uppercase tracking-[0.2em] text-white/50 leading-tight";
+
 const formatPlayerName = (name: string) => {
   const parts = name.trim().split(/\s+/);
   if (parts.length <= 1) return name;
@@ -57,13 +60,11 @@ export function SeasonHighScoreCard({
   return (
     <section
       aria-label="Season High Score"
-      className={cn("space-y-2", className)}
+      className={cn("space-y-3", className)}
     >
-      <p className="text-[0.6rem] uppercase tracking-[0.2em] text-white/50">
-        Season High Score ($25)
-      </p>
+      <p className={sectionHeadingClass}>Season high ($25)</p>
       {prizeData.seasonHighScore ? (
-        <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+        <div className="overflow-hidden rounded-2xl border border-white/10 bg-[var(--surface)]">
           <div className="border-b border-white/10 p-3">
             <div className="flex items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2">
@@ -145,12 +146,12 @@ export function UnluckyCandidatesCard({
   return (
     <section
       aria-label="Unlucky Candidates"
-      className={cn("space-y-2", className)}
+      className={cn("space-y-3", className)}
     >
-      <p className="text-[0.6rem] uppercase tracking-[0.2em] text-white/50">
+      <p className={sectionHeadingClass}>
         Unlucky Candidates ($10)
       </p>
-      <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 text-[0.65rem]">
+        <div className="overflow-hidden rounded-2xl border border-white/10 bg-[var(--surface)] text-[0.65rem]">
         <table className="w-full">
           <tbody>
             {prizeData.unluckyTeams.slice(0, 3).map((team, index, array) => (
@@ -189,12 +190,10 @@ export function LongestTDCandidatesCard({
   return (
     <section
       aria-label="Longest Touchdown Candidates"
-      className={cn("space-y-2", className)}
+      className={cn("space-y-3", className)}
     >
-      <p className="text-[0.6rem] uppercase tracking-[0.2em] text-white/50">
-        Longest TD Candidates ($15)
-      </p>
-      <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 text-[0.6rem]">
+      <p className={sectionHeadingClass}>Longest TDs ($15)</p>
+      <div className="overflow-hidden rounded-2xl border border-white/10 bg-[var(--surface)] text-[0.6rem]">
         <table className="w-full">
           <tbody>
             {isLoadingLongest ? (

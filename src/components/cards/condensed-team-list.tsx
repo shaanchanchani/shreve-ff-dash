@@ -23,7 +23,7 @@ export function CondensedTeamList({
   const hasValueColumn = items.some((item) => Boolean(item.value));
 
   return (
-    <div className="overflow-hidden rounded-xl border border-white/10 bg-white/5">
+    <div className="overflow-hidden rounded-xl border border-white/10 bg-[var(--surface)]">
       {items.length > 0 ? (
         <>
           <div className="max-h-48 overflow-y-auto">

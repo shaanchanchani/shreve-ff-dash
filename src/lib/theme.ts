@@ -30,8 +30,9 @@ export const fontVariableClasses = `${headingFont.variable} ${dataFont.variable}
 export const basePalette = {
   "--night": "#0a0615",
   "--mist": "#f4ede3",
-  "--ember": "#ff7b39",
-  "--tide": "#2ce0cf",
-  "--violet": "#6c5ce7",
+  "--ember": "#f5f5f5",
+  "--tide": "#f5f5f5",
+  "--violet": "#f5f5f5",
   "--charcoal": "rgba(17, 17, 27, 0.95)",
+  "--surface": "rgba(16, 16, 24, 0.92)",
 } as CSSProperties;

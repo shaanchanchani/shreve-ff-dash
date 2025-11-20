@@ -109,14 +109,14 @@ const imports = fontSamples
   .map((font) => `@import url('https://fonts.googleapis.com/css2?family=${font.google}&display=swap');`)
   .join("\n");
 
-const ember = "#ff7b39";
+const ember = "#f5f5f5";
 
 const badge: CSSProperties = {
   display: "inline-flex",
   borderRadius: "999px",
   padding: "0.25rem 0.75rem",
-  background: "rgba(255,123,57,0.12)",
-  border: "1px solid rgba(255,123,57,0.4)",
+  background: "rgba(245,245,245,0.12)",
+  border: "1px solid rgba(245,245,245,0.4)",
   fontSize: "0.75rem",
   letterSpacing: "0.2em",
   textTransform: "uppercase",
@@ -125,7 +125,7 @@ const badge: CSSProperties = {
 
 export default function FontLab() {
   return (
-    <div className="px-6 py-12 text-white" style={{ background: "radial-gradient(circle at top, #1a1525, #05040b 75%)" }}>
+    <div className="px-6 py-12 text-white" style={{ backgroundColor: "#000000" }}>
       <div className="mx-auto max-w-6xl space-y-10">
         <div className="space-y-4 text-center">
           <div style={badge}>Longest TD Font Lab</div>
@@ -144,7 +144,7 @@ export default function FontLab() {
           {fontSamples.map((font) => (
             <div
               key={font.name}
-              className="rounded-3xl border border-white/10 bg-white/5 p-5 shadow-[0_20px_45px_rgba(0,0,0,0.45)] backdrop-blur-sm"
+              className="rounded-3xl border border-white/10 bg-[var(--surface)] p-5 shadow-[0_20px_45px_rgba(0,0,0,0.45)] backdrop-blur-sm"
             >
               <p
                 className="text-[2.2rem] uppercase tracking-[0.25em] drop-shadow-[0_10px_25px_rgba(0,0,0,0.55)]"
@@ -166,7 +166,7 @@ export default function FontLab() {
       <style jsx global>{`
         ${imports}
         body {
-          background-color: #05040b;
+          background-color: #000000;
         }
       `}</style>
     </div>
