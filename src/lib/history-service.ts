@@ -30,10 +30,17 @@ type ClientRosterEntry = {
     id?: number;
     fullName?: string | null;
     name?: string | null;
+    defaultPositionId?: number;
   };
   athlete?: {
     id?: number;
   };
+};
+
+type ClientDraftPick = {
+  id: number;
+  playerId?: number;
+  teamId: number;
 };
 
 type ClientBoxscore = {
@@ -138,6 +145,7 @@ const determineCurrentSeason = () => {
   const override = Number.parseInt(
     process.env.NEXT_PUBLIC_CURRENT_SEASON ?? "",
     10,
+    141,
   );
   if (!Number.isNaN(override) && override > 0) {
     return override;
@@ -175,6 +183,28 @@ const fetchSeasonSnapshot = async (
     return null;
   }
 
+  // Fetch draft data if available
+  const draftedPlayersSet = new Set<number>();
+  if (hasRosterData) {
+    try {
+      const draftPicks = (await client.getDraftInfo({
+        seasonId,
+      })) as ClientDraftPick[];
+      
+      if (Array.isArray(draftPicks)) {
+        draftPicks.forEach((pick) => {
+          const pid = pick.playerId ?? pick.id;
+          if (pid) {
+            draftedPlayersSet.add(pid);
+          }
+        });
+      }
+    } catch (error) {
+      console.warn(`[history] Failed to fetch draft data for ${seasonId}`, error);
+      // Not critical, just means waiver stats will be inaccurate for this season
+    }
+  }
+
   const teams = teamsResponse.map((team) => ({
     teamId: team.id,
     teamName: team.name ?? `Team ${team.id}`,
@@ -186,8 +216,16 @@ const fetchSeasonSnapshot = async (
   const teamLookup = new Map<number, TeamMeta>();
   teams.forEach((team) => teamLookup.set(team.teamId, team));
 
+  // Track which team "discovered" an undrafted player first
+  // Map<PlayerId, TeamId>
+  const waiverClaims = new Map<number, number>();
+  // Track player roster status from previous week to detect drops
+  // Map<PlayerId, TeamId>
+  let lastWeekRosters = new Map<number, number>();
+
   const matchups: HistoricalMatchup[] = [];
   let emptyWeekCount = 0;
+  let bootstrappedDraftFromRosters = false;
 
   for (let week = 1; week <= MAX_SCORING_PERIOD; week++) {
     const boxscoreFetcher = hasRosterData
@@ -228,6 +266,88 @@ const fetchSeasonSnapshot = async (
 
     emptyWeekCount = 0;
 
+    // Build current week's roster map and update claims
+    // We need to do this BEFORE processing matchups for waiver points
+    // to capture the state of the league for this week.
+    const currentWeekRosters = new Map<number, number>();
+    
+    // Calculate weekly positional thresholds (Top 24)
+    const positionalScores: Record<string, number[]> = { QB: [], RB: [], WR: [], TE: [], "D/ST": [], K: [] };
+    
+    if (hasRosterData) {
+       boxscores.forEach((boxscore) => {
+          [boxscore.homeRoster, boxscore.awayRoster].forEach((rosterEntries, index) => {
+             const teamId = index === 0 ? boxscore.homeTeamId : boxscore.awayTeamId;
+             if (!Array.isArray(rosterEntries)) return;
+             
+             rosterEntries.forEach((entry) => {
+                 const pid = derivePlayerId(entry, "unknown");
+                 const realPos = getRealPosition(entry);
+                 const pts = typeof entry.totalPoints === 'number' ? entry.totalPoints : 0;
+
+                 if (realPos && positionalScores[realPos] && pts > 0) {
+                    positionalScores[realPos].push(pts);
+                 }
+                 
+                 // Skip if drafted globally
+                 if (draftedPlayersSet.has(pid)) return;
+                 
+                 currentWeekRosters.set(pid, teamId);
+                 
+                 // Check claim logic
+                 if (!waiverClaims.has(pid)) {
+                    // New discovery! Claim it.
+                    waiverClaims.set(pid, teamId);
+                 } else {
+                    const claimedBy = waiverClaims.get(pid);
+                    const lastOwner = lastWeekRosters.get(pid);
+                    
+                    // If owned by someone else last week, and now owned by this team
+                    // It's a direct transfer (Trade). Keep original claim.
+                    if (lastOwner && lastOwner !== teamId) {
+                       // Do nothing. Claim stays with original discoverer.
+                    } 
+                    // If NOT owned last week (was dropped), but has an old claim
+                    // It means they cleared waivers. New Claim!
+                    else if (!lastOwner && claimedBy !== teamId) {
+                       waiverClaims.set(pid, teamId);
+                    }
+                 }
+             });
+          });
+       });
+
+       // Offline drafts don't always populate the draft API.
+       // If we never got any draft picks, treat the first set of rosters
+       // as the drafted player pool so obvious studs (Kyler, etc.) don't
+       // show up as waiver snipes.
+       if (
+         !bootstrappedDraftFromRosters &&
+         draftedPlayersSet.size === 0 &&
+         currentWeekRosters.size > 0
+       ) {
+         currentWeekRosters.forEach((_teamId, playerId) => {
+           draftedPlayersSet.add(playerId);
+         });
+         bootstrappedDraftFromRosters = true;
+       }
+    }
+
+    // Calculate cutoff scores
+    const thresholds: Record<string, number> = { QB: 0, RB: 0, WR: 0, TE: 0, "D/ST": 0, K: 0 };
+    Object.keys(thresholds).forEach((pos) => {
+        const scores = positionalScores[pos].sort((a, b) => b - a);
+        // Top 24 means index 23. If fewer than 24 players, take the last one.
+        if (scores.length > 0) {
+           // For positions where we typically start 1 (QB, TE, K, D/ST), maybe strict Top 12 makes more sense?
+           // But user asked for Top 24 generally. We can tune this if needed.
+           // Standard leagues start ~12 of single-slot positions, ~24 of RB/WR.
+           // Let's stick to Top 24 as requested for simplicity unless specified otherwise.
+           const index = Math.min(scores.length - 1, 23);
+           thresholds[pos] = scores[index];
+        }
+    });
+
     boxscores.forEach((boxscore) => {
       const homeMeta = teamLookup.get(boxscore.homeTeamId);
       const awayMeta = teamLookup.get(boxscore.awayTeamId);
@@ -249,10 +369,31 @@ const fetchSeasonSnapshot = async (
         seasonId,
         week,
         label: `Week ${week}`,
-        home: buildMatchupTeam(boxscore.homeRoster, homeMeta, homeScore, hasRosterData),
-        away: buildMatchupTeam(boxscore.awayRoster, awayMeta, awayScore, hasRosterData),
+        home: buildMatchupTeam(
+          boxscore.homeRoster,
+          homeMeta,
+          homeScore,
+          hasRosterData,
+          draftedPlayersSet,
+          waiverClaims,
+          thresholds,
+        ),
+        away: buildMatchupTeam(
+          boxscore.awayRoster,
+          awayMeta,
+          awayScore,
+          hasRosterData,
+          draftedPlayersSet,
+          waiverClaims,
+          thresholds,
+        ),
       });
     });
+
+    // Update roster state for next week
+    if (hasRosterData) {
+       lastWeekRosters = currentWeekRosters;
+    }
   }
 
   if (!matchups.length) {
@@ -272,8 +413,58 @@ const buildMatchupTeam = (
   meta: TeamMeta,
   score: number,
   hasRosterData: boolean,
+  allDraftedPlayerIds?: Set<number>,
+  waiverClaims?: Map<number, number>,
+  thresholds?: Record<string, number>,
 ): HistoricalMatchupTeam => {
-  const roster = convertRoster(rosterEntries);
+  const roster = convertRoster(rosterEntries, allDraftedPlayerIds);
+  
+  // Handle Waiver Claims logic
+  if (hasRosterData && waiverClaims) {
+    roster.forEach((player) => {
+      if (player.wasDraftedByTeam) return; // Already drafted globally
+
+      const claimedByTeamId = waiverClaims.get(player.id);
+      if (claimedByTeamId && claimedByTeamId !== meta.teamId) {
+         // Claimed by someone else (and not dropped in between).
+         // Ineligible for points.
+         player.wasDraftedByTeam = true;
+      }
+    });
+  }
+
+  // Calculate waiver points
+  let waiverPoints = 0;
+  if (hasRosterData && allDraftedPlayerIds) {
+    waiverPoints = roster.reduce((sum, player) => {
+      // Only count starters
+      if (player.position === "BN" || player.position === "Bench") return sum;
+      
+      // Exclude K (optional, but typically kickers are not "snipes")
+      if (player.position === "K") return sum;
+      
+      // D/ST and QB are now allowed if they meet the threshold!
+      // if (player.position === "D/ST" || player.position === "QB") return sum;
+      
+      if (player.wasDraftedByTeam) return sum;
+
+      // Check performance threshold (Top 26 for position)
+      // If player doesn't meet threshold, they don't contribute to waiver score
+      // even if they were a "waiver snipe".
+      if (thresholds && player.realPosition) {
+         const cutoff = thresholds[player.realPosition] ?? 0;
+         if (player.points < cutoff) {
+            return sum;
+         }
+      }
+
+      // Mark this player as having contributed effectively this week
+      player.effectiveWaiverPoints = player.points;
+
+      return sum + player.points;
+    }, 0);
+  }
+
   return {
     ownerKey: meta.ownerKey,
     ownerName: meta.ownerName,
@@ -283,10 +474,21 @@ const buildMatchupTeam = (
     score,
     roster,
     rosterUnavailable: !hasRosterData || roster.length === 0,
+    waiverPoints,
   };
 };
 
-const convertRoster = (entries: ClientRosterEntry[] | undefined) => {
+const normalizePosition = (raw: string | undefined | null) => {
+  if (!raw) return "BN";
+  if (raw === "RB/WR/TE" || raw === "RB/WR") return "FLEX";
+  if (raw === "Bench") return "BN";
+  return raw;
+}
+
+const convertRoster = (
+  entries: ClientRosterEntry[] | undefined,
+  allDraftedPlayerIds?: Set<number>,
+) => {
   if (!Array.isArray(entries)) {
     return [];
   }
@@ -298,16 +500,45 @@ const convertRoster = (entries: ClientRosterEntry[] | undefined) => {
         entry?.player?.fullName ||
         entry?.player?.name ||
         "Unknown Player";
+      
+      const id = derivePlayerId(entry, name);
+      const position = normalizePosition(entry?.rosteredPosition ?? entry?.position);
+      const realPosition = getRealPosition(entry);
+      
+      // wasDraftedByTeam now means "was drafted by ANY team in the league"
+      // We use this flag to filter out non-waiver players
+      const wasDraftedByTeam = allDraftedPlayerIds?.has(id) ?? false;
 
       return {
-        id: derivePlayerId(entry, name),
+        id,
         name,
-        position: entry?.rosteredPosition ?? entry?.position ?? "BN",
+        position,
+        realPosition,
         points: typeof entry?.totalPoints === "number" ? entry.totalPoints : 0,
+        wasDraftedByTeam,
       };
     })
     .filter((player) => Number.isFinite(player.points))
     .sort((a, b) => b.points - a.points);
+};
+
+const getRealPosition = (entry: ClientRosterEntry) => {
+  if (entry?.player?.defaultPositionId) {
+    switch (entry.player.defaultPositionId) {
+      case 1: return "QB";
+      case 2: return "RB";
+      case 3: return "WR";
+      case 4: return "TE";
+      case 5: return "K";
+      case 16: return "D/ST";
+    }
+  }
+  
+  if (entry?.position && entry.position !== "Bench" && entry.position !== "BN" && entry.position !== "FLEX" && entry.position !== "RB/WR/TE") {
+     return entry.position;
+  }
+  
+  return undefined;
 };
 
 const normalizeScore = (score: unknown) => {
@@ -334,6 +565,7 @@ const buildOwnerSummaries = (
         totalTies: 0,
         totalPointsFor: 0,
         totalPointsAgainst: 0,
+        totalWaiverPoints: 0,
         winPct: 0,
         seasonsParticipated: 0,
         logos: [],
@@ -362,6 +594,7 @@ const buildOwnerSummaries = (
       const owner = ensureOwner(team.ownerKey, team.ownerName);
       owner.totalPointsFor += team.score;
       owner.totalPointsAgainst += opponent.score;
+      owner.totalWaiverPoints += team.waiverPoints; // Aggregate waiver points
 
       if (team.score > opponent.score) {
         owner.totalWins += 1;

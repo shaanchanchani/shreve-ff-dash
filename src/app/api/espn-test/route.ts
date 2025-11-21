@@ -56,11 +56,16 @@ const isBoxscoreRosterEntry = (value: unknown): value is BoxscoreRosterEntry => 
 
 export async function GET() {
   try {
+    console.time('Total Request');
     // Check cache first
     const now = Date.now();
     if (cachedData && (now - cacheTimestamp) < CACHE_DURATION) {
+      console.log('Serving from cache');
+      console.timeEnd('Total Request');
       return NextResponse.json(cachedData);
     }
+    console.log('Cache miss or expired, fetching fresh data');
+
     const client = new Client({
       leagueId: parseInt(process.env.LEAGUE_ID || '1918224288'),
       espnS2: process.env.espn_s2,
@@ -70,6 +75,7 @@ export async function GET() {
     const seasonId = 2025; // Updated to 2025 season
     const totalRegularSeasonWeeks = 14; // Should match TOTAL_REGULAR_SEASON_WEEKS in prize-calculations.ts
     
+    console.time('Fetch Teams');
     // Get team names and logos first
     const teamIdToName: { [id: number]: string } = {};
     const teamIdToLogo: { [id: number]: string } = {};
@@ -84,7 +90,9 @@ export async function GET() {
     } catch (teamError) {
       console.warn('Failed to fetch team names:', teamError);
     }
+    console.timeEnd('Fetch Teams');
     
+    console.time('Fetch Boxscores');
     // Get all boxscores for the season in parallel (much faster)
     const boxscorePromises = [];
     for (let week = 1; week <= totalRegularSeasonWeeks; week++) {
@@ -102,7 +110,9 @@ export async function GET() {
     }
     
     const allBoxscores = await Promise.all(boxscorePromises);
+    console.timeEnd('Fetch Boxscores');
 
+    console.time('Processing Data');
     // Calculate Season High Score
     let seasonHighScore: HighScore | null = null;
     const weeklyHighScores: WeeklyWinner[] = [];
@@ -235,6 +245,7 @@ export async function GET() {
 
     const addSeasonHighScorePlayers = async (highScore: HighScore) => {
       try {
+        console.time('Fetch High Score Players');
         const teamId = Object.keys(teamIdToName).find(id => 
           teamIdToName[parseInt(id, 10)] === highScore.teamName
         );
@@ -245,6 +256,7 @@ export async function GET() {
             matchupPeriodId: highScore.week,
             scoringPeriodId: highScore.week
           });
+          console.timeEnd('Fetch High Score Players');
           
           // Find the specific team's matchup data
           if (Array.isArray(roster)) {
@@ -337,8 +349,10 @@ export async function GET() {
       percentage: totalWins > 0 ? winsAboveMedian / totalWins : 0
     };
 
+    console.time('Playoff Simulation');
     // Playoff Probabilities Simulation
     const SIMULATIONS = 2000;
+
     const teamsList = Object.values(teamStats);
     const playoffCounts: { [teamName: string]: number } = {};
     const byeCounts: { [teamName: string]: number } = {};
@@ -453,6 +467,7 @@ export async function GET() {
             t.clinchedBye = idx < 2;
         });
     }
+    console.timeEnd('Playoff Simulation');
 
     const standings: TeamStanding[] = teamsList.sort((a, b) => {
       const aScore = a.wins + 0.5 * a.ties;
@@ -474,6 +489,7 @@ export async function GET() {
     cachedData = prizeData;
     cacheTimestamp = now;
 
+    console.timeEnd('Total Request');
     return NextResponse.json(prizeData);
   } catch (error) {
     console.error('ESPN API Error:', error);

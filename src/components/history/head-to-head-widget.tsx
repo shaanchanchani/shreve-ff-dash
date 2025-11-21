@@ -4,13 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import type {
   HistoricalMatchup,
   HistoricalMatchupTeam,
-  OwnerSummary,
 } from "@/types/history";
 import { TeamLogo } from "@/components/common/team-logo";
 import { cn } from "@/lib/utils";
+import { canonicalOwnerKey, type AggregatedOwner } from "@/lib/owner-utils";
 
 type Props = {
-  owners: OwnerSummary[];
+  owners: AggregatedOwner[];
   matchups: HistoricalMatchup[];
 };
 
@@ -54,7 +54,18 @@ export function HeadToHeadWidget({ owners, matchups }: Props) {
     }
 
     return matchups.filter((matchup) => {
-      const participants = [matchup.home.ownerKey, matchup.away.ownerKey];
+      const homeKey = canonicalOwnerKey(
+        matchup.home.ownerKey,
+        matchup.home.ownerName,
+        matchup.home.teamName,
+      );
+      const awayKey = canonicalOwnerKey(
+        matchup.away.ownerKey,
+        matchup.away.ownerName,
+        matchup.away.teamName,
+      );
+
+      const participants = [homeKey, awayKey];
       
       // Must include primary
       if (!participants.includes(selection.primary)) {
@@ -141,10 +152,26 @@ const summarizeRecord = (
 ): RecordSummary => {
   return matchups.reduce<RecordSummary>(
     (acc, matchup) => {
-      const team =
-        matchup.home.ownerKey === ownerKey ? matchup.home : matchup.away;
-      const opponent =
-        matchup.home.ownerKey === ownerKey ? matchup.away : matchup.home;
+      const homeKey = canonicalOwnerKey(
+        matchup.home.ownerKey,
+        matchup.home.ownerName,
+        matchup.home.teamName,
+      );
+      const awayKey = canonicalOwnerKey(
+        matchup.away.ownerKey,
+        matchup.away.ownerName,
+        matchup.away.teamName,
+      );
+
+      const isHome = homeKey === ownerKey;
+      const isAway = awayKey === ownerKey;
+
+      if (!isHome && !isAway) {
+        return acc;
+      }
+
+      const team = isHome ? matchup.home : matchup.away;
+      const opponent = isHome ? matchup.away : matchup.home;
 
       if (!team || !opponent) {
         return acc;
@@ -181,7 +208,7 @@ const Selector = ({
   includeAllOption = false,
 }: {
   value: string;
-  options: OwnerSummary[];
+  options: AggregatedOwner[];
   onChange: (value: string) => void;
   disabledValue?: string;
   includeAllOption?: boolean;
@@ -347,11 +374,18 @@ const RosterColumn = ({ team }: { team: HistoricalMatchupTeam }) => {
     );
   }
 
-  // Sort roster by points descending
-  const sortedRoster = [...team.roster].sort((a, b) => b.points - a.points);
+  // Filter and sort
+  const starters = team.roster
+    .filter(p => p.position !== "BN")
+    .sort((a, b) => b.points - a.points);
+    
+  const bench = team.roster
+    .filter(p => p.position === "BN")
+    .sort((a, b) => b.points - a.points);
 
   return (
-    <div className="rounded-lg border border-white/5 bg-white/[0.02] p-2">
+    <div className="rounded-lg border border-white/5 bg-white/[0.02] p-2 space-y-4">
+      {/* Team Header */}
       <div className="mb-2 flex items-center gap-2 border-b border-white/5 pb-2">
         <TeamLogo logoURL={team.logoURL} label={team.teamName} className="size-5" />
         <div className="min-w-0 flex-1">
@@ -364,27 +398,73 @@ const RosterColumn = ({ team }: { team: HistoricalMatchupTeam }) => {
         </div>
       </div>
       
-      <ul className="space-y-1.5">
-        {sortedRoster.map((player) => (
-          <li
-            key={`${team.teamId}-${player.id}-${player.position}`}
-            className="flex items-center gap-2"
-          >
-            <PlayerHeadshot playerId={player.id} className="size-6 shrink-0 rounded-full bg-black/40" />
-            
-            <div className="min-w-0 flex-1 flex flex-col justify-center">
-              <div className="flex items-center justify-between gap-2">
-                 <span className="truncate font-heading text-[0.55rem] uppercase tracking-wide text-white/70 leading-none">
-                    {player.name}
-                 </span>
-                 <span className="font-sports text-[0.75rem] text-[var(--ember)] leading-none">
-                    {player.points.toFixed(1)}
-                 </span>
+      {/* Starters */}
+      <div>
+        <h4 className="mb-2 text-[0.4rem] uppercase tracking-[0.2em] text-white/30">Starters</h4>
+        <ul className="space-y-1.5">
+          {starters.map((player) => (
+            <li
+              key={`${team.teamId}-${player.id}-${player.position}`}
+              className="flex items-center gap-2"
+            >
+              <div className="relative">
+                 <PlayerHeadshot playerId={player.id} className="size-6 shrink-0 rounded-full bg-black/40" />
+                 {player.wasDraftedByTeam === false && (
+                    <div className="absolute -bottom-0.5 -right-0.5 rounded-full bg-[var(--mist)] px-1 py-px text-[0.3rem] font-bold text-black uppercase tracking-wider">
+                       WV
+                    </div>
+                 )}
               </div>
-            </div>
-          </li>
-        ))}
-      </ul>
+              
+              <div className="min-w-0 flex-1 flex flex-col justify-center">
+                <div className="flex items-center justify-between gap-2">
+                   <div className="flex items-center gap-1.5 min-w-0">
+                     <span className="w-5 shrink-0 text-[0.4rem] uppercase tracking-wider text-white/30 text-center bg-white/5 rounded px-0.5 py-0.5">
+                        {player.position}
+                     </span>
+                     <span className="truncate font-heading text-[0.55rem] uppercase tracking-wide text-white/70 leading-none">
+                        {player.name}
+                     </span>
+                   </div>
+                   <span className="font-sports text-[0.75rem] text-[var(--ember)] leading-none">
+                      {player.points.toFixed(1)}
+                   </span>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Bench */}
+      {bench.length > 0 && (
+        <div>
+          <h4 className="mb-2 text-[0.4rem] uppercase tracking-[0.2em] text-white/30">Bench</h4>
+          <ul className="space-y-1.5 opacity-60">
+            {bench.map((player) => (
+              <li
+                key={`${team.teamId}-${player.id}-${player.position}`}
+                className="flex items-center gap-2"
+              >
+                <PlayerHeadshot playerId={player.id} className="size-5 shrink-0 rounded-full bg-black/40 grayscale" />
+                
+                <div className="min-w-0 flex-1 flex flex-col justify-center">
+                  <div className="flex items-center justify-between gap-2">
+                     <div className="flex items-center gap-1.5 min-w-0">
+                       <span className="truncate font-heading text-[0.5rem] uppercase tracking-wide text-white/70 leading-none">
+                          {player.name}
+                       </span>
+                     </div>
+                     <span className="font-sports text-[0.65rem] text-white/50 leading-none">
+                        {player.points.toFixed(1)}
+                     </span>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 };

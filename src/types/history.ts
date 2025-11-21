@@ -3,6 +3,9 @@ export type HistoricalPlayer = {
   name: string;
   position: string;
   points: number;
+  wasDraftedByTeam?: boolean;
+  realPosition?: string;
+  effectiveWaiverPoints?: number;
 };
 
 export type HistoricalMatchupTeam = {
@@ -14,6 +17,7 @@ export type HistoricalMatchupTeam = {
   score: number;
   roster: HistoricalPlayer[];
   rosterUnavailable: boolean;
+  waiverPoints: number;
 };
 
 export type HistoricalMatchup = {
@@ -34,6 +38,7 @@ export type OwnerSummary = {
   totalTies: number;
   totalPointsFor: number;
   totalPointsAgainst: number;
+  totalWaiverPoints: number;
   winPct: number;
   seasonsParticipated: number;
   logos: Array<{ seasonId: number; logoURL?: string }>;

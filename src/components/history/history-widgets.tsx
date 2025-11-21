@@ -7,25 +7,26 @@ import {
   WinLossLeaderboard,
   type LedgerOwnerRow,
 } from "@/components/history/win-loss-leaderboard";
+import {
+  WaiverLeaderboard,
+  type WaiverOwnerRow,
+} from "@/components/history/waiver-leaderboard";
 import type { HistoricalMatchup, OwnerSummary } from "@/types/history";
 import { cn } from "@/lib/utils";
+import {
+  aggregateOwners,
+  canonicalOwnerKey,
+  type AggregatedOwner,
+} from "@/lib/owner-utils";
 
 const HISTORY_TABS = [
   { id: "ledger", label: "Ledger" },
   { id: "rivalries", label: "H2H" },
+  { id: "waiver", label: "Waiver Snipes" },
 ] as const;
 
 type HistoryTabId = (typeof HISTORY_TABS)[number]["id"];
 type SeasonFilter = "all" | number;
-
-const MANUAL_OWNER_GROUPS = [
-  {
-    aliasKey: "joon-kim",
-    displayName: "Joon Kim",
-    ownerNames: ["녑비 주", "Joon Kim"],
-    teamNames: ["Team R Kelly", "Team kenneth carson"],
-  },
-] as const;
 
 export function HistoryWidgets() {
   const { data, error, isLoading } = useLeagueHistory();
@@ -56,9 +57,35 @@ export function HistoryWidgets() {
     );
   }, [matchups, seasonFilter]);
 
+  // Shared aggregation for both widgets
+  const aggregatedOwnersMap = useMemo(
+    () => aggregateOwners(owners ?? []),
+    [owners],
+  );
+
+  const aggregatedOwnersList = useMemo(
+    () => Array.from(aggregatedOwnersMap.values()),
+    [aggregatedOwnersMap],
+  );
+
   const ledgerRows = useMemo(
-    () => buildLedgerRows(owners ?? [], filteredMatchups, seasonFilter),
-    [owners, filteredMatchups, seasonFilter],
+    () =>
+      buildLedgerRows(
+        aggregatedOwnersMap,
+        filteredMatchups,
+        seasonFilter,
+      ),
+    [aggregatedOwnersMap, filteredMatchups, seasonFilter],
+  );
+
+  const waiverRows = useMemo(
+    () =>
+      buildWaiverRows(
+        aggregatedOwnersMap,
+        filteredMatchups,
+        seasonFilter,
+      ),
+    [aggregatedOwnersMap, filteredMatchups, seasonFilter],
   );
 
   if (error) {
@@ -97,7 +124,21 @@ export function HistoryWidgets() {
         selectedSeason={seasonFilter}
         onSelectSeason={setSeasonFilter}
       />
-      <HeadToHeadWidget owners={owners ?? []} matchups={filteredMatchups} />
+      <HeadToHeadWidget
+        owners={aggregatedOwnersList}
+        matchups={filteredMatchups}
+      />
+    </div>
+  );
+
+  const waiverContent = (
+    <div className="flex flex-col gap-6">
+      <HistoryPulse
+        seasons={seasons ?? []}
+        selectedSeason={seasonFilter}
+        onSelectSeason={setSeasonFilter}
+      />
+      <WaiverLeaderboard owners={waiverRows} />
     </div>
   );
 
@@ -123,7 +164,11 @@ export function HistoryWidgets() {
         </div>
       </div>
 
-      {activeTab === "ledger" ? ledgerContent : rivalryContent}
+      {activeTab === "ledger"
+        ? ledgerContent
+        : activeTab === "rivalries"
+          ? rivalryContent
+          : waiverContent}
     </div>
   );
 }
@@ -190,11 +235,10 @@ const HistoryPulse = ({
 };
 
 const buildLedgerRows = (
-  owners: OwnerSummary[],
+  aggregatedOwners: Map<string, AggregatedOwner>,
   matchups: HistoricalMatchup[],
   seasonFilter: SeasonFilter,
 ): LedgerOwnerRow[] => {
-  const aggregatedOwners = aggregateOwners(owners);
   const statsMap = new Map<
     string,
     {
@@ -288,6 +332,182 @@ const buildLedgerRows = (
   return rows;
 };
 
+const buildWaiverRows = (
+  aggregatedOwners: Map<string, AggregatedOwner>,
+  matchups: HistoricalMatchup[],
+  seasonFilter: SeasonFilter,
+): WaiverOwnerRow[] => {
+  const statsMap = new Map<
+    string,
+    {
+      ownerKey: string;
+      totalWaiverPoints: number;
+      totalPoints: number;
+      gamesWithRosterData: number;
+      waiverPlayers: Map<
+        string,
+        {
+          playerId: number;
+          playerName: string;
+          seasonId: number;
+          points: number;
+          weeksStarted: number;
+        }
+      >;
+    }
+  >();
+
+  const ensureStats = (ownerKey: string) => {
+    if (!statsMap.has(ownerKey)) {
+      statsMap.set(ownerKey, {
+        ownerKey,
+        totalWaiverPoints: 0,
+        totalPoints: 0,
+        gamesWithRosterData: 0,
+        waiverPlayers: new Map(),
+      });
+    }
+    return statsMap.get(ownerKey)!;
+  };
+
+  matchups.forEach((matchup) => {
+    const homeKey = canonicalOwnerKey(
+      matchup.home.ownerKey,
+      matchup.home.ownerName,
+      matchup.home.teamName,
+    );
+    const awayKey = canonicalOwnerKey(
+      matchup.away.ownerKey,
+      matchup.away.ownerName,
+      matchup.away.teamName,
+    );
+
+    const home = ensureStats(homeKey);
+    const away = ensureStats(awayKey);
+
+    home.totalPoints += matchup.home.score;
+    away.totalPoints += matchup.away.score;
+
+    // Removed accumulators for waiver points here. 
+    // We now calculate them from the player map to apply the impact threshold.
+
+    if (!matchup.home.rosterUnavailable) {
+      home.gamesWithRosterData += 1;
+      matchup.home.roster.forEach((player) => {
+        if (
+          player.position === "BN" ||
+          player.position === "Bench" ||
+          // D/ST and QB constraints are handled by effectiveWaiverPoints logic now
+          player.wasDraftedByTeam
+        ) {
+          return;
+        }
+        
+        // Use the effectiveWaiverPoints calculated in the service
+        // If it's 0 or undefined, this player didn't meet the threshold for this week
+        if (!player.effectiveWaiverPoints || player.effectiveWaiverPoints <= 0) {
+           return;
+        }
+
+        const key = `${player.id}-${matchup.seasonId}`;
+        if (!home.waiverPlayers.has(key)) {
+          home.waiverPlayers.set(key, {
+            playerId: player.id,
+            playerName: player.name,
+            seasonId: matchup.seasonId,
+            points: 0,
+            weeksStarted: 0,
+          });
+        }
+        const pStats = home.waiverPlayers.get(key)!;
+        pStats.points += player.effectiveWaiverPoints;
+        pStats.weeksStarted += 1;
+      });
+    }
+
+    if (!matchup.away.rosterUnavailable) {
+      away.gamesWithRosterData += 1;
+      matchup.away.roster.forEach((player) => {
+        if (
+          player.position === "BN" ||
+          player.position === "Bench" ||
+          // D/ST and QB constraints are handled by effectiveWaiverPoints logic now
+          player.wasDraftedByTeam
+        ) {
+          return;
+        }
+        
+        // Use the effectiveWaiverPoints calculated in the service
+        if (!player.effectiveWaiverPoints || player.effectiveWaiverPoints <= 0) {
+           return;
+        }
+
+        const key = `${player.id}-${matchup.seasonId}`;
+        if (!away.waiverPlayers.has(key)) {
+          away.waiverPlayers.set(key, {
+            playerId: player.id,
+            playerName: player.name,
+            seasonId: matchup.seasonId,
+            points: 0,
+            weeksStarted: 0,
+          });
+        }
+        const pStats = away.waiverPlayers.get(key)!;
+        pStats.points += player.effectiveWaiverPoints;
+        pStats.weeksStarted += 1;
+      });
+    }
+  });
+
+  aggregatedOwners.forEach((_, ownerKey) => ensureStats(ownerKey));
+
+  const rows: WaiverOwnerRow[] = Array.from(statsMap.values())
+    .map((stat) => {
+      const meta = aggregatedOwners.get(stat.ownerKey);
+
+      const impactPlayers = Array.from(stat.waiverPlayers.values());
+      // Filter removed: we now rely on the per-week "effectiveWaiverPoints" logic
+      // which already filters out poor performances.
+      
+      const totalWaiverPoints = impactPlayers.reduce(
+        (sum, p) => sum + p.points,
+        0,
+      );
+
+      const waiverPctOfTotal =
+        stat.totalPoints > 0 ? totalWaiverPoints / stat.totalPoints : 0;
+      const waiverPointsPerGame =
+        stat.gamesWithRosterData > 0
+          ? totalWaiverPoints / stat.gamesWithRosterData
+          : 0;
+
+      const topWaiverPlayers = Array.from(stat.waiverPlayers.values())
+        .sort((a, b) => {
+          // Sort by points per start
+          const ppgA = a.weeksStarted > 0 ? a.points / a.weeksStarted : 0;
+          const ppgB = b.weeksStarted > 0 ? b.points / b.weeksStarted : 0;
+          return ppgB - ppgA;
+        })
+        .slice(0, 25);
+
+      return {
+        ownerKey: stat.ownerKey,
+        ownerName: meta?.ownerName ?? "Unknown",
+        latestTeamName: meta?.latestTeamName ?? "Team",
+        logoURL: selectOwnerLogo(meta, seasonFilter),
+        totalWaiverPoints: totalWaiverPoints,
+        waiverPointsPerGame,
+        waiverPctOfTotal,
+        gamesWithRosterData: stat.gamesWithRosterData,
+        topWaiverPlayers,
+      };
+    })
+    .filter((row) => row.gamesWithRosterData > 0)
+    .sort((a, b) => b.totalWaiverPoints - a.totalWaiverPoints);
+
+  return rows;
+};
+
 const selectOwnerLogo = (
   owner: AggregatedOwner | undefined,
   seasonFilter: SeasonFilter,
@@ -303,89 +523,4 @@ const selectOwnerLogo = (
     .filter((logo) => logo.logoURL)
     .sort((a, b) => b.seasonId - a.seasonId);
   return sorted[0]?.logoURL;
-};
-
-type AggregatedOwner = {
-  ownerKey: string;
-  ownerName: string;
-  latestTeamName: string;
-  logos: OwnerSummary["logos"];
-  seasonsParticipated: number;
-};
-
-const aggregateOwners = (owners: OwnerSummary[]) => {
-  type InternalMeta = AggregatedOwner & { seasonSet: Set<number> };
-  const metaMap = new Map<string, InternalMeta>();
-
-  owners.forEach((owner) => {
-    const alias = matchAlias(owner.ownerName, owner.latestTeamName);
-    const key = alias?.aliasKey ?? owner.ownerKey;
-    const displayName = alias?.displayName ?? owner.ownerName;
-
-    const existing = metaMap.get(key);
-    if (!existing) {
-      const seasonSet = new Set<number>();
-      owner.logos.forEach((logo) => seasonSet.add(logo.seasonId));
-      metaMap.set(key, {
-        ownerKey: key,
-        ownerName: displayName,
-        latestTeamName: owner.latestTeamName,
-        logos: [...owner.logos],
-        seasonsParticipated: seasonSet.size || owner.seasonsParticipated,
-        seasonSet,
-      });
-    } else {
-      existing.latestTeamName = owner.latestTeamName;
-      owner.logos.forEach((logo) => {
-        existing.logos.push(logo);
-        existing.seasonSet.add(logo.seasonId);
-      });
-      existing.ownerName = displayName;
-      existing.seasonsParticipated = existing.seasonSet.size;
-    }
-  });
-
-  const output = new Map<string, AggregatedOwner>();
-  metaMap.forEach((meta, key) => {
-    output.set(key, {
-      ownerKey: key,
-      ownerName: meta.ownerName,
-      latestTeamName: meta.latestTeamName,
-      logos: meta.logos,
-      seasonsParticipated: meta.seasonSet.size || meta.seasonsParticipated,
-    });
-  });
-
-  return output;
-};
-
-const matchAlias = (ownerName?: string, teamName?: string) => {
-  if (!ownerName && !teamName) return null;
-  const normalizedOwner = ownerName?.toLowerCase().trim();
-  const normalizedTeam = teamName?.toLowerCase().trim();
-
-  return (
-    MANUAL_OWNER_GROUPS.find((group) => {
-      const ownerMatch = normalizedOwner
-        ? group.ownerNames.some(
-            (name) => name.toLowerCase().trim() === normalizedOwner,
-          )
-        : false;
-      const teamMatch = normalizedTeam
-        ? group.teamNames.some(
-            (name) => name.toLowerCase().trim() === normalizedTeam,
-          )
-        : false;
-      return ownerMatch || teamMatch;
-    }) ?? null
-  );
-};
-
-const canonicalOwnerKey = (
-  rawKey: string,
-  ownerName?: string,
-  teamName?: string,
-) => {
-  const alias = matchAlias(ownerName, teamName);
-  return alias?.aliasKey ?? rawKey;
 };
