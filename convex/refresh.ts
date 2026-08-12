@@ -1,3 +1,4 @@
+import { v } from "convex/values";
 import { internalAction, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -22,6 +23,11 @@ type RefreshPlan = {
   transactionWeeks: number[];
 };
 
+type RefreshConfiguration = {
+  seasonYear: number;
+  externalLeagueId: string;
+};
+
 type RefreshResult =
   | { status: "not_configured" }
   | { status: "offseason"; seasonYear: number; seasonType: string }
@@ -37,13 +43,43 @@ type SleeperCrosswalkRow = {
   linked: boolean;
 };
 
-export const plan = internalQuery({
+export const configuration = internalQuery({
   args: {},
-  handler: async (ctx): Promise<RefreshPlan> => {
-    const seasonYear = Number.parseInt(
-      process.env.SLEEPER_SEASON_YEAR ?? "2026",
-      10,
-    );
+  handler: async (ctx): Promise<RefreshConfiguration | null> => {
+    const league = await ctx.db
+      .query("leagues")
+      .withIndex("by_slug", (q) => q.eq("slug", "shreve"))
+      .unique();
+    if (!league) return null;
+    const seasons = await ctx.db
+      .query("leagueSeasons")
+      .withIndex("by_league_year", (q) => q.eq("leagueId", league._id))
+      .collect();
+    const sleeperSeasons = seasons
+      .filter((season) => season.authoritativeProvider === "sleeper")
+      .sort((left, right) => right.year - left.year);
+    for (const season of sleeperSeasons) {
+      const providerRef = await ctx.db
+        .query("leagueProviderRefs")
+        .withIndex("by_season_provider", (q) =>
+          q.eq("leagueSeasonId", season._id).eq("provider", "sleeper"),
+        )
+        .unique();
+      if (providerRef) {
+        return {
+          seasonYear: season.year,
+          externalLeagueId: providerRef.externalLeagueId,
+        };
+      }
+    }
+    return null;
+  },
+});
+
+export const plan = internalQuery({
+  args: { seasonYear: v.number() },
+  handler: async (ctx, args): Promise<RefreshPlan> => {
+    const seasonYear = args.seasonYear;
     const league = await ctx.db
       .query("leagues")
       .withIndex("by_slug", (q) => q.eq("slug", "shreve"))
@@ -107,7 +143,12 @@ export const plan = internalQuery({
 export const sleeper = internalAction({
   args: {},
   handler: async (ctx): Promise<RefreshResult> => {
-    const externalLeagueId = process.env.SLEEPER_LEAGUE_ID;
+    const configuration: RefreshConfiguration | null = await ctx.runQuery(
+      internal.refresh.configuration,
+      {},
+    );
+    const externalLeagueId =
+      process.env.SLEEPER_LEAGUE_ID ?? configuration?.externalLeagueId;
     if (!externalLeagueId) return { status: "not_configured" };
 
     const [stateResponse, leagueResponse] = await Promise.all([
@@ -125,7 +166,8 @@ export const sleeper = internalAction({
       leagueResponse.json(),
     ])) as [NflState, SleeperLeagueState];
     const seasonYear = Number.parseInt(
-      process.env.SLEEPER_SEASON_YEAR ?? nflState.season,
+      process.env.SLEEPER_SEASON_YEAR ??
+        String(configuration?.seasonYear ?? nflState.season),
       10,
     );
     if (Number.parseInt(nflState.season, 10) !== seasonYear) {
@@ -147,7 +189,9 @@ export const sleeper = internalAction({
       }),
     });
 
-    const plan: RefreshPlan = await ctx.runQuery(internal.refresh.plan, {});
+    const plan: RefreshPlan = await ctx.runQuery(internal.refresh.plan, {
+      seasonYear,
+    });
     const sixHours = 6 * 60 * 60 * 1_000;
     if (
       !plan.seasonEntriesSyncedAt ||

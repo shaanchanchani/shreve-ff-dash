@@ -96,26 +96,25 @@ npx convex run providers/sleeper:verifyLeaguePayload \
 ## 2026 Sleeper cutover
 
 The refresh cron is already deployed and safely returns `not_configured` until
-the real league ID is available.
+the real league ID is attached. Once attached, the cron reads the durable
+Provider Reference from Convex; an environment variable is only an optional
+operational override.
 
-1. Set the production league ID and season:
-
-   ```bash
-   npx convex env set --prod SLEEPER_LEAGUE_ID '<league-id>'
-   npx convex env set --prod SLEEPER_SEASON_YEAR '2026'
-   ```
-
-2. Probe and import rosters:
+1. Verify and prepare the production League Season in one fail-before-write
+   operation:
 
    ```bash
-   npx convex run --prod providers/sleeper:probe \
-     '{"externalLeagueId":"<league-id>"}'
-   npx convex run --prod providers/sleeper:syncSeasonEntries \
-     '{"seasonYear":2026,"externalLeagueId":"<league-id>"}'
-   npx convex run --prod identityManagement:sleeperCrosswalk
+   npx convex run --prod cutover:prepareSleeper \
+     '{"seasonYear":2026,"externalLeagueId":"<league-id>","verificationWeek":1}'
    ```
 
-3. Explicitly link each Sleeper user to an existing canonical Member. The
+   This verifies provider references and normalized rules without mutation
+   first, then attaches the durable league reference, imports Season Rules and
+   rosters, checks the draft, and returns the Member crosswalk plus current
+   readiness blockers. `SLEEPER_LEAGUE_ID` and `SLEEPER_SEASON_YEAR` may still
+   be set as emergency overrides, but are not required for normal refreshes.
+
+2. Explicitly link each Sleeper user to an existing canonical Member. The
    importer deliberately refuses to merge people by display name:
 
    ```bash
@@ -123,7 +122,7 @@ the real league ID is available.
      '{"sleeperUserId":"<user-id>","canonicalMemberKey":"<member-key>"}'
    ```
 
-4. Run `refresh:sleeper`, reconcile the new season, and run the cutover gate:
+3. Run `refresh:sleeper`, reconcile the new season, and run the cutover gate:
 
    ```bash
    npx convex run --prod refresh:sleeper
@@ -143,7 +142,7 @@ the real league ID is available.
    weeks once, entries and drafts every six hours, and Sleeper's player catalog
    at most once per day.
 
-5. After validating the 2026 snapshot, change
+4. After validating the 2026 snapshot, change
    `NEXT_PUBLIC_CURRENT_SEASON` in Vercel from `2025` to `2026` and redeploy.
    This is the only frontend cutover switch.
 

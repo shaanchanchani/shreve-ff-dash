@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { internalQuery } from "./_generated/server";
+import { internalAction, internalQuery } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { providerValidator } from "./model";
 
 type Provider = "espn" | "sleeper";
@@ -37,6 +38,21 @@ type CutoverReadiness = {
   warnings: Finding[];
 };
 
+type SleeperVerificationSummary = {
+  passed: boolean;
+  seasonYear: number;
+  issues: string[];
+  [key: string]: unknown;
+};
+
+type SleeperPreparationResult = {
+  verification: SleeperVerificationSummary;
+  seasonEntries: Record<string, unknown>;
+  draft: Record<string, unknown>;
+  crosswalk: Array<Record<string, unknown>>;
+  readiness: CutoverReadiness;
+};
+
 const emptyCounts = () => ({
   entries: 0,
   linkedPrimaryMembers: 0,
@@ -47,6 +63,64 @@ const emptyCounts = () => ({
   dualProviderPlayers: 0,
   unresolvedIdentityExceptions: 0,
   seasonRuleVersions: 0,
+});
+
+export const prepareSleeper = internalAction({
+  args: {
+    seasonYear: v.number(),
+    externalLeagueId: v.string(),
+    verificationWeek: v.optional(v.number()),
+  },
+  handler: async (ctx, args): Promise<SleeperPreparationResult> => {
+    const verificationWeek = args.verificationWeek ?? 1;
+    if (!Number.isInteger(verificationWeek) || verificationWeek < 1) {
+      throw new Error("Verification Week must be a positive integer.");
+    }
+    const verification = (await ctx.runAction(
+      internal.providers.sleeper.verifyLeaguePayload,
+      {
+        externalLeagueId: args.externalLeagueId,
+        week: verificationWeek,
+      },
+    )) as SleeperVerificationSummary;
+    if (verification.seasonYear !== args.seasonYear) {
+      throw new Error(
+        `Sleeper league season ${verification.seasonYear} does not match ${args.seasonYear}.`,
+      );
+    }
+    if (!verification.passed) {
+      throw new Error(
+        `Sleeper payload verification failed: ${verification.issues.join(" ")}`,
+      );
+    }
+
+    const seasonEntries = (await ctx.runAction(
+      internal.providers.sleeper.syncSeasonEntries,
+      {
+        seasonYear: args.seasonYear,
+        externalLeagueId: args.externalLeagueId,
+      },
+    )) as Record<string, unknown>;
+    const draft = (await ctx.runAction(internal.providers.sleeper.syncDraft, {
+      seasonYear: args.seasonYear,
+      externalLeagueId: args.externalLeagueId,
+    })) as Record<string, unknown>;
+    const crosswalk = (await ctx.runQuery(
+      internal.identityManagement.sleeperCrosswalk,
+      {},
+    )) as Array<Record<string, unknown>>;
+    const readiness: CutoverReadiness = await ctx.runQuery(
+      internal.cutover.readiness,
+      { seasonYear: args.seasonYear, provider: "sleeper" },
+    );
+    return {
+      verification,
+      seasonEntries,
+      draft,
+      crosswalk,
+      readiness,
+    };
+  },
 });
 
 export const readiness = internalQuery({
