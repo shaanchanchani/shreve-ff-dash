@@ -11,7 +11,7 @@ import {
   WaiverLeaderboard,
   type WaiverOwnerRow,
 } from "@/components/history/waiver-leaderboard";
-import type { HistoricalMatchup, OwnerSummary } from "@/types/history";
+import type { HistoricalMatchup } from "@/types/history";
 import { cn } from "@/lib/utils";
 import {
   aggregateOwners,

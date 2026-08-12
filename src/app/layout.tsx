@@ -3,6 +3,7 @@ import { Geist } from "next/font/google";
 import { JetBrains_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
+import { ConvexClientProvider } from "./convex-client-provider";
 import { MobileDock } from "@/components/navigation/mobile-dock";
 
 const geistSans = Geist({
@@ -44,8 +45,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${jetbrainsMono.variable} antialiased`}
       >
-        {children}
-        <MobileDock />
+        <ConvexClientProvider>
+          {children}
+          <MobileDock />
+        </ConvexClientProvider>
       </body>
     </html>
   );

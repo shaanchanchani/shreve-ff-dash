@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useQuery } from "convex/react";
+import { api } from "@convex/_generated/api";
 import type { LeagueHistoryResponse } from "@/types/history";
 
 type HistoryState = {
@@ -10,38 +11,10 @@ type HistoryState = {
 };
 
 export const useLeagueHistory = (): HistoryState => {
-  const [data, setData] = useState<LeagueHistoryResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    const load = async () => {
-      try {
-        const response = await fetch("/api/history", {
-          signal: controller.signal,
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to load history (${response.status})`);
-        }
-
-        const payload: LeagueHistoryResponse = await response.json();
-        setData(payload);
-      } catch (err) {
-        if ((err as DOMException).name === "AbortError") {
-          return;
-        }
-        setError((err as Error).message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    load();
-    return () => controller.abort();
-  }, []);
-
-  return { data, error, isLoading };
+  const snapshot = useQuery(api.history.all);
+  return {
+    data: (snapshot as LeagueHistoryResponse | null | undefined) ?? null,
+    error: snapshot === null ? "No history snapshot is available." : null,
+    isLoading: snapshot === undefined,
+  };
 };

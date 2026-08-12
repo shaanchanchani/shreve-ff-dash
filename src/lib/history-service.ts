@@ -2,6 +2,7 @@ import { Client } from "espn-fantasy-football-api/node";
 import type {
   HistoricalMatchup,
   HistoricalMatchupTeam,
+  HistoricalPlayer,
   LeagueHistoryResponse,
   OwnerSummary,
   SeasonDescriptor,
@@ -145,7 +146,6 @@ const determineCurrentSeason = () => {
   const override = Number.parseInt(
     process.env.NEXT_PUBLIC_CURRENT_SEASON ?? "",
     10,
-    141,
   );
   if (!Number.isNaN(override) && override > 0) {
     return override;
@@ -488,7 +488,7 @@ const normalizePosition = (raw: string | undefined | null) => {
 const convertRoster = (
   entries: ClientRosterEntry[] | undefined,
   allDraftedPlayerIds?: Set<number>,
-) => {
+): HistoricalPlayer[] => {
   if (!Array.isArray(entries)) {
     return [];
   }

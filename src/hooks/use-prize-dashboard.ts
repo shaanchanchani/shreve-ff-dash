@@ -1,51 +1,32 @@
-import { useEffect, useMemo, useState } from "react";
+"use client";
+
+import { useMemo } from "react";
+import { useQuery } from "convex/react";
+import { api } from "@convex/_generated/api";
 import type { PrizeData, LongestTDs } from "@/types/prizes";
 import { buildLedger, getLongestCards, getTeamSummaries } from "@/lib/prize-calculations";
 
-const LONGEST_TDS_ENDPOINT =
-  process.env.NEXT_PUBLIC_LONGEST_TDS_URL?.trim() || "/api/longest-tds";
+const CURRENT_SEASON = Number.parseInt(
+  process.env.NEXT_PUBLIC_CURRENT_SEASON ?? "2025",
+  10,
+);
 
-export const usePrizeDashboard = () => {
-  const [prizeData, setPrizeData] = useState<PrizeData | null>(null);
-  const [longestTDs, setLongestTDs] = useState<LongestTDs | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isLoadingPrize, setIsLoadingPrize] = useState(true);
-  const [isLoadingLongest, setIsLoadingLongest] = useState(true);
-
-  useEffect(() => {
-    const fetchPrizeData = async () => {
-      try {
-        const response = await fetch("/api/espn-test");
-        if (!response.ok) throw new Error("Failed to fetch prize data");
-        const payload = await response.json();
-        setPrizeData(payload);
-      } catch (err) {
-        setError("Failed to fetch data: " + (err as Error).message);
-      } finally {
-        setIsLoadingPrize(false);
-      }
-    };
-
-    fetchPrizeData();
-  }, []);
-
-  useEffect(() => {
-    const timer = setTimeout(async () => {
-      try {
-        const response = await fetch(LONGEST_TDS_ENDPOINT);
-        if (response.ok) {
-          const payload = await response.json();
-          setLongestTDs(payload);
-        }
-      } catch (err) {
-        console.warn("Failed to fetch longest TDs:", err);
-      } finally {
-        setIsLoadingLongest(false);
-      }
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, []);
+export const usePrizeDashboard = ({
+  includeLongest = false,
+}: { includeLongest?: boolean } = {}) => {
+  const snapshot = useQuery(api.dashboard.current, {
+    seasonYear: CURRENT_SEASON,
+  });
+  const longestSnapshot = useQuery(
+    api.dashboard.longestTouchdowns,
+    includeLongest ? { seasonYear: CURRENT_SEASON } : "skip",
+  );
+  const prizeData = (snapshot?.data as PrizeData | undefined) ?? null;
+  const longestTDs =
+    (longestSnapshot?.data as LongestTDs | undefined) ?? null;
+  const error = snapshot === null ? "No dashboard snapshot is available." : null;
+  const isLoadingPrize = snapshot === undefined;
+  const isLoadingLongest = includeLongest && longestSnapshot === undefined;
 
   const { teamSummaries } = useMemo(() => {
     if (!prizeData) {
