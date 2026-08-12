@@ -74,6 +74,15 @@ npx convex run --prod reconciliation:season '{"seasonYear":2025}'
 A passing reconciliation has no structural issues, score mismatches, or
 unresolved identity exceptions.
 
+The Sleeper adapter can also be exercised against any league without writing
+that league into Convex. This runs the same normalization used by production
+for rosters, matchups, lineups, draft picks, and transactions:
+
+```bash
+npx convex run providers/sleeper:verifyLeaguePayload \
+  '{"externalLeagueId":"<league-id>","week":1}'
+```
+
 ## 2026 Sleeper cutover
 
 The refresh cron is already deployed and safely returns `not_configured` until
@@ -104,14 +113,27 @@ the real league ID is available.
      '{"sleeperUserId":"<user-id>","canonicalMemberKey":"<member-key>"}'
    ```
 
-4. Run `refresh:sleeper`, confirm the crosswalk is complete, and reconcile the
-   new season. The cron then refreshes the current week every five minutes,
-   completed weeks once, entries and drafts every six hours, and Sleeper's
-   5 MB player catalog at most once per day.
+4. Run `refresh:sleeper`, reconcile the new season, and run the cutover gate:
+
+   ```bash
+   npx convex run --prod refresh:sleeper
+   npx convex run --prod reconciliation:season '{"seasonYear":2026}'
+   npx convex run --prod cutover:readiness \
+     '{"seasonYear":2026,"provider":"sleeper"}'
+   ```
+
+   The cutover result must say `"ready": true`. Its blocker codes cover the
+   authoritative provider, league configuration, explicit owner crosswalk,
+   unresolved identities, matchup/lineup integrity, provider score parity,
+   sync freshness, player catalog freshness, and the warm dashboard snapshot.
+   Missing ESPN IDs for legitimate Sleeper-only players are warnings, not
+   blockers. The cron refreshes the current week every five minutes, completed
+   weeks once, entries and drafts every six hours, and Sleeper's player catalog
+   at most once per day.
 
 5. After validating the 2026 snapshot, change
    `NEXT_PUBLIC_CURRENT_SEASON` in Vercel from `2025` to `2026` and redeploy.
    This is the only frontend cutover switch.
 
-Do not repoint the existing production domain until the 2026 member crosswalk,
-dashboard snapshot, and reconciliation all pass.
+Do not repoint the existing production domain until reconciliation passes and
+`cutover:readiness` reports no blockers.

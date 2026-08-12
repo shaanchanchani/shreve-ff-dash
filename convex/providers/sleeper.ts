@@ -1,15 +1,15 @@
 import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
-import type { Id } from "../_generated/dataModel";
-
-type SleeperLeague = {
-  league_id: string;
-  season: string;
-  draft_id?: string | null;
-  previous_league_id?: string | null;
-  roster_positions?: string[] | null;
-};
+import type { Doc, Id } from "../_generated/dataModel";
+import {
+  collectSleeperWeekPlayerIds,
+  normalizeSleeperWeek,
+  sleeperPlayerName,
+  type SleeperLeaguePayload,
+  type SleeperMatchupPayload,
+  type SleeperPlayerPayload,
+} from "./sleeperNormalization";
 
 type SleeperUser = {
   user_id: string;
@@ -21,26 +21,6 @@ type SleeperUser = {
 type SleeperRoster = {
   roster_id: number;
   owner_id?: string | null;
-};
-
-type SleeperMatchup = {
-  roster_id: number;
-  matchup_id?: number | null;
-  points?: number | null;
-  custom_points?: number | null;
-  players?: string[] | null;
-  starters?: string[] | null;
-  players_points?: Record<string, number | null> | null;
-};
-
-type SleeperPlayer = {
-  full_name?: string | null;
-  first_name?: string | null;
-  last_name?: string | null;
-  position?: string | null;
-  team?: string | null;
-  active?: boolean | null;
-  espn_id?: string | number | null;
 };
 
 type SleeperDraft = {
@@ -114,6 +94,48 @@ type TransactionSyncResult = {
   movementsCreated: number;
 };
 
+type SleeperCatalogPlayer = Pick<
+  Doc<"sleeperPlayerCatalog">,
+  | "externalPlayerId"
+  | "fullName"
+  | "espnPlayerId"
+  | "position"
+  | "nflTeam"
+  | "active"
+>;
+
+type CachedSleeperPlayer = {
+  externalPlayerId: string;
+  espnPlayerId?: string;
+  fullName: string;
+  position?: string;
+  nflTeam?: string;
+  active?: boolean;
+};
+
+type LeaguePayloadVerificationResult = {
+  passed: boolean;
+  seasonYear: number;
+  week: number;
+  userCount: number;
+  rosterCount: number;
+  ownerlessRosterCount: number;
+  matchupCount: number;
+  participantCount: number;
+  byeRosterCount: number;
+  lineupEntryCount: number;
+  starterCount: number;
+  playerCount: number;
+  playerMetadataCount: number;
+  espnCrosswalkCount: number;
+  commissionerAdjustmentCount: number;
+  completedDraftPresent: boolean;
+  draftPickCount: number;
+  transactionCount: number;
+  transactionMovementCount: number;
+  issues: string[];
+};
+
 const weekStateValidator = v.union(
   v.literal("scheduled"),
   v.literal("live"),
@@ -140,24 +162,12 @@ const requiredLeagueId = (value?: string) => {
   return externalLeagueId;
 };
 
-const resultFor = (score: number, opponentScore: number, final: boolean) => {
-  if (!final) return "pending" as const;
-  if (score > opponentScore) return "win" as const;
-  if (score < opponentScore) return "loss" as const;
-  return "tie" as const;
-};
-
-const playerName = (externalPlayerId: string, player?: SleeperPlayer) =>
-  player?.full_name?.trim() ||
-  [player?.first_name, player?.last_name].filter(Boolean).join(" ").trim() ||
-  `Sleeper Player ${externalPlayerId}`;
-
 export const probe = internalAction({
   args: { externalLeagueId: v.string() },
   handler: async (_ctx, args) => {
     const base = `https://api.sleeper.app/v1/league/${args.externalLeagueId}`;
     const [league, users, rosters] = await Promise.all([
-      getJson<SleeperLeague>(base),
+      getJson<SleeperLeaguePayload>(base),
       getJson<SleeperUser[]>(`${base}/users`),
       getJson<SleeperRoster[]>(`${base}/rosters`),
     ]);
@@ -166,6 +176,138 @@ export const probe = internalAction({
       userCount: users.length,
       rosterCount: rosters.length,
       previousLeagueId: league.previous_league_id ?? null,
+    };
+  },
+});
+
+export const verifyLeaguePayload = internalAction({
+  args: {
+    externalLeagueId: v.string(),
+    week: v.number(),
+  },
+  handler: async (ctx, args): Promise<LeaguePayloadVerificationResult> => {
+    const base = `https://api.sleeper.app/v1/league/${args.externalLeagueId}`;
+    const [league, users, rosters, rawMatchups, drafts, rawTransactions] =
+      await Promise.all([
+        getJson<SleeperLeaguePayload>(base),
+        getJson<SleeperUser[]>(`${base}/users`),
+        getJson<SleeperRoster[]>(`${base}/rosters`),
+        getJson<SleeperMatchupPayload[]>(`${base}/matchups/${args.week}`),
+        getJson<SleeperDraft[]>(`${base}/drafts`),
+        getJson<SleeperTransaction[]>(`${base}/transactions/${args.week}`),
+      ]);
+    const issues: string[] = [];
+    const userIds = new Set(users.map((user) => user.user_id));
+    const rosterIds = new Set(rosters.map((roster) => String(roster.roster_id)));
+    for (const roster of rosters) {
+      if (roster.owner_id && !userIds.has(roster.owner_id)) {
+        issues.push(
+          `Roster ${roster.roster_id} references unknown User ${roster.owner_id}.`,
+        );
+      }
+    }
+
+    const playerIds = collectSleeperWeekPlayerIds(rawMatchups);
+    const catalogPlayers: SleeperCatalogPlayer[] = await ctx.runQuery(
+      internal.identityManagement.sleeperCatalogPlayers,
+      { externalPlayerIds: playerIds },
+    );
+    const playerCatalog: Record<string, SleeperPlayerPayload> =
+      Object.fromEntries(
+        catalogPlayers.map((player) => [
+          player.externalPlayerId,
+          {
+            full_name: player.fullName,
+            ...(player.espnPlayerId ? { espn_id: player.espnPlayerId } : {}),
+            ...(player.position ? { position: player.position } : {}),
+            ...(player.nflTeam ? { team: player.nflTeam } : {}),
+            ...(player.active !== undefined ? { active: player.active } : {}),
+          },
+        ]),
+      );
+    const normalized = normalizeSleeperWeek({
+      league,
+      rawMatchups,
+      playerCatalog,
+      week: args.week,
+      state: "final",
+    });
+    issues.push(...normalized.issues);
+    for (const matchup of normalized.matchups) {
+      for (const participant of matchup.participants) {
+        if (!rosterIds.has(participant.externalTeamId)) {
+          issues.push(
+            `Matchup references unknown Roster ${participant.externalTeamId}.`,
+          );
+        }
+      }
+    }
+
+    const completedDraft = drafts
+      .filter((draft) => draft.status === "complete")
+      .sort((left, right) => (right.created ?? 0) - (left.created ?? 0))[0];
+    const draftPicks = completedDraft
+      ? await getJson<SleeperDraftPick[]>(
+          `https://api.sleeper.app/v1/draft/${completedDraft.draft_id}/picks`,
+        )
+      : [];
+    for (const pick of draftPicks) {
+      if (pick.roster_id != null && !rosterIds.has(String(pick.roster_id))) {
+        issues.push(
+          `Draft Pick ${pick.pick_no} references unknown Roster ${pick.roster_id}.`,
+        );
+      }
+    }
+
+    const completeTransactions = rawTransactions.filter(
+      (transaction) => transaction.status === "complete",
+    );
+    let transactionMovementCount = 0;
+    for (const transaction of completeTransactions) {
+      const movements = [
+        ...Object.entries(transaction.adds ?? {}),
+        ...Object.entries(transaction.drops ?? {}),
+      ];
+      transactionMovementCount += movements.length;
+      for (const [, rosterId] of movements) {
+        if (!rosterIds.has(String(rosterId))) {
+          issues.push(
+            `Transaction ${transaction.transaction_id} references unknown Roster ${rosterId}.`,
+          );
+        }
+      }
+    }
+
+    const normalizedParticipants = normalized.matchups.flatMap(
+      (matchup) => matchup.participants,
+    );
+    const normalizedLineups = normalizedParticipants.flatMap(
+      (participant) => participant.roster,
+    );
+    return {
+      passed: issues.length === 0,
+      seasonYear: Number.parseInt(league.season, 10),
+      week: args.week,
+      userCount: users.length,
+      rosterCount: rosters.length,
+      ownerlessRosterCount: rosters.filter((roster) => !roster.owner_id).length,
+      matchupCount: normalized.matchups.length,
+      participantCount: normalizedParticipants.length,
+      byeRosterCount: normalized.byeRosterIds.length,
+      lineupEntryCount: normalizedLineups.length,
+      starterCount: normalizedLineups.filter((lineup) => lineup.started).length,
+      playerCount: playerIds.length,
+      playerMetadataCount: catalogPlayers.length,
+      espnCrosswalkCount: catalogPlayers.filter((player) => player.espnPlayerId)
+        .length,
+      commissionerAdjustmentCount: normalizedParticipants.filter(
+        (participant) => participant.commissionerAdjustment !== 0,
+      ).length,
+      completedDraftPresent: Boolean(completedDraft),
+      draftPickCount: draftPicks.length,
+      transactionCount: completeTransactions.length,
+      transactionMovementCount,
+      issues,
     };
   },
 });
@@ -179,7 +321,7 @@ export const syncSeasonEntries = internalAction({
     const externalLeagueId = requiredLeagueId(args.externalLeagueId);
     const base = `https://api.sleeper.app/v1/league/${externalLeagueId}`;
     const [league, users, rosters] = await Promise.all([
-      getJson<SleeperLeague>(base),
+      getJson<SleeperLeaguePayload>(base),
       getJson<SleeperUser[]>(`${base}/users`),
       getJson<SleeperRoster[]>(`${base}/rosters`),
     ]);
@@ -189,6 +331,7 @@ export const syncSeasonEntries = internalAction({
       );
     }
     await ctx.runMutation(internal.bootstrap.attachSleeperLeague, {
+      seasonYear: args.seasonYear,
       externalLeagueId,
       ...(league.previous_league_id
         ? { previousExternalLeagueId: league.previous_league_id }
@@ -247,14 +390,14 @@ export const syncPlayerCatalog = internalAction({
       return { status: "fresh", recordCount: status.recordCount };
     }
 
-    const playerCatalog = await getJson<Record<string, SleeperPlayer>>(
+    const playerCatalog = await getJson<Record<string, SleeperPlayerPayload>>(
       "https://api.sleeper.app/v1/players/nfl",
     );
     const fetchedAt = Date.now();
     const players = Object.entries(playerCatalog).map(
       ([externalPlayerId, player]) => ({
         externalPlayerId,
-        fullName: playerName(externalPlayerId, player),
+        fullName: sleeperPlayerName(externalPlayerId, player),
         ...(player.position ? { position: player.position } : {}),
         ...(player.team ? { nflTeam: player.team } : {}),
         ...(typeof player.active === "boolean" ? { active: player.active } : {}),
@@ -297,7 +440,7 @@ export const syncDraft = internalAction({
     );
     try {
       const [league, drafts] = await Promise.all([
-        getJson<SleeperLeague>(base),
+        getJson<SleeperLeaguePayload>(base),
         getJson<SleeperDraft[]>(`${base}/drafts`),
       ]);
       const draft = drafts
@@ -325,7 +468,7 @@ export const syncDraft = internalAction({
       );
       const relevantPlayerIds = rawPicks.map((pick) => pick.player_id);
       await ctx.runAction(internal.providers.sleeper.syncPlayerCatalog, {});
-      const catalogPlayers = await ctx.runQuery(
+      const catalogPlayers: SleeperCatalogPlayer[] = await ctx.runQuery(
         internal.identityManagement.sleeperCatalogPlayers,
         { externalPlayerIds: relevantPlayerIds },
       );
@@ -440,7 +583,7 @@ export const syncTransactions = internalAction({
       );
       if (relevantPlayerIds.length > 0) {
         await ctx.runAction(internal.providers.sleeper.syncPlayerCatalog, {});
-        const catalogPlayers = await ctx.runQuery(
+        const catalogPlayers: SleeperCatalogPlayer[] = await ctx.runQuery(
           internal.identityManagement.sleeperCatalogPlayers,
           { externalPlayerIds: relevantPlayerIds },
         );
@@ -544,8 +687,8 @@ export const syncWeek = internalAction({
 
     try {
       const [league, rawMatchups] = await Promise.all([
-        getJson<SleeperLeague>(base),
-        getJson<SleeperMatchup[]>(`${base}/matchups/${args.week}`),
+        getJson<SleeperLeaguePayload>(base),
+        getJson<SleeperMatchupPayload[]>(`${base}/matchups/${args.week}`),
       ]);
       if (Number.parseInt(league.season, 10) !== args.seasonYear) {
         throw new Error(
@@ -553,18 +696,8 @@ export const syncWeek = internalAction({
         );
       }
 
-      const grouped = new Map<string, SleeperMatchup[]>();
-      for (const matchup of rawMatchups) {
-        if (matchup.matchup_id == null) continue;
-        const key = String(matchup.matchup_id);
-        const participants = grouped.get(key) ?? [];
-        participants.push(matchup);
-        grouped.set(key, participants);
-      }
-      const pairedMatchups = Array.from(grouped.entries()).filter(
-        ([, participants]) => participants.length === 2,
-      );
-      if (pairedMatchups.length === 0) {
+      const relevantPlayerIds = collectSleeperWeekPlayerIds(rawMatchups);
+      if (rawMatchups.length === 0) {
         await ctx.runMutation(internal.ingestion.skipSyncRun, {
           syncRunId,
           reason: `Sleeper returned no paired matchups for ${args.seasonYear} Week ${args.week}.`,
@@ -582,16 +715,12 @@ export const syncWeek = internalAction({
         };
       }
 
-      const relevantPlayerIds = new Set(
-        pairedMatchups.flatMap(([, participants]) =>
-          participants.flatMap((participant) => participant.players ?? []),
-        ),
-      );
-      const cachedPlayers = await ctx.runQuery(
+      const cachedPlayers: CachedSleeperPlayer[] = await ctx.runQuery(
         internal.identityManagement.sleeperPlayersByExternalIds,
-        { externalPlayerIds: Array.from(relevantPlayerIds) },
+        { externalPlayerIds: relevantPlayerIds },
       );
-      const playerCatalog: Record<string, SleeperPlayer> = Object.fromEntries(
+      const playerCatalog: Record<string, SleeperPlayerPayload> =
+        Object.fromEntries(
         cachedPlayers.map((player) => [
           player.externalPlayerId,
           {
@@ -603,11 +732,11 @@ export const syncWeek = internalAction({
           },
         ]),
       );
-      if (cachedPlayers.length !== relevantPlayerIds.size) {
+      if (cachedPlayers.length !== relevantPlayerIds.length) {
         await ctx.runAction(internal.providers.sleeper.syncPlayerCatalog, {});
-        const catalogPlayers = await ctx.runQuery(
+        const catalogPlayers: SleeperCatalogPlayer[] = await ctx.runQuery(
           internal.identityManagement.sleeperCatalogPlayers,
-          { externalPlayerIds: Array.from(relevantPlayerIds) },
+          { externalPlayerIds: relevantPlayerIds },
         );
         for (const player of catalogPlayers) {
           playerCatalog[player.externalPlayerId] = {
@@ -619,7 +748,7 @@ export const syncWeek = internalAction({
           };
         }
       }
-      const playerInputs = Array.from(relevantPlayerIds).map(
+      const playerInputs = relevantPlayerIds.map(
         (externalPlayerId) => {
           const player = playerCatalog[externalPlayerId];
           return {
@@ -627,7 +756,7 @@ export const syncWeek = internalAction({
             ...(player?.espn_id != null
               ? { espnPlayerId: String(player.espn_id) }
               : {}),
-            fullName: playerName(externalPlayerId, player),
+            fullName: sleeperPlayerName(externalPlayerId, player),
             ...(player?.position ? { position: player.position } : {}),
             ...(player?.team ? { nflTeam: player.team } : {}),
             ...(typeof player?.active === "boolean"
@@ -646,66 +775,17 @@ export const syncWeek = internalAction({
         );
       }
 
-      const starterSlots = (league.roster_positions ?? []).filter(
-        (slot) => !["BN", "IR", "TAXI"].includes(slot),
-      );
-      const final = args.state === "final";
-      const matchups = pairedMatchups.map(([externalMatchupId, inputs]) => {
-        const sorted = [...inputs].sort(
-          (left, right) => left.roster_id - right.roster_id,
-        );
-        const scores = sorted.map((participant) => {
-          const providerScore =
-            typeof participant.points === "number" ? participant.points : 0;
-          const score =
-            typeof participant.custom_points === "number"
-              ? participant.custom_points
-              : providerScore;
-          return { score, providerScore };
-        });
-        return {
-          externalMatchupId: `${args.week}:${externalMatchupId}`,
-          participants: sorted.map((participant, index) => {
-            const starters = participant.starters ?? [];
-            const starterIndex = new Map(
-              starters.map((externalPlayerId, slotIndex) => [
-                externalPlayerId,
-                slotIndex,
-              ]),
-            );
-            const roster = (participant.players ?? []).map(
-              (externalPlayerId) => {
-                const player = playerCatalog[externalPlayerId];
-                const indexInStarters = starterIndex.get(externalPlayerId);
-                const started = indexInStarters !== undefined;
-                return {
-                  externalPlayerId,
-                  fullName: playerName(externalPlayerId, player),
-                  ...(player?.position ? { position: player.position } : {}),
-                  ...(player?.team ? { nflTeam: player.team } : {}),
-                  rosterSlot: started
-                    ? (starterSlots[indexInStarters] ?? player?.position ?? "START")
-                    : "BN",
-                  started,
-                  points:
-                    participant.players_points?.[externalPlayerId] ?? 0,
-                };
-              },
-            );
-            const opponent = scores[index === 0 ? 1 : 0];
-            const own = scores[index];
-            return {
-              externalTeamId: String(participant.roster_id),
-              slot: (index === 0 ? 1 : 2) as 1 | 2,
-              score: own.score,
-              providerScore: own.providerScore,
-              commissionerAdjustment: own.score - own.providerScore,
-              result: resultFor(own.score, opponent.score, final),
-              roster,
-            };
-          }),
-        };
+      const normalized = normalizeSleeperWeek({
+        league,
+        rawMatchups,
+        playerCatalog,
+        week: args.week,
+        state: args.state,
       });
+      if (normalized.issues.length > 0) {
+        throw new Error(normalized.issues.join(" "));
+      }
+      const { matchups } = normalized;
 
       return await ctx.runMutation(internal.ingestion.upsertWeek, {
         syncRunId,

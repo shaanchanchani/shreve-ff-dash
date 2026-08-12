@@ -10,6 +10,7 @@
 
 import type * as bootstrap from "../bootstrap.js";
 import type * as crons from "../crons.js";
+import type * as cutover from "../cutover.js";
 import type * as dashboard from "../dashboard.js";
 import type * as history from "../history.js";
 import type * as historyMaterialization from "../historyMaterialization.js";
@@ -21,6 +22,7 @@ import type * as model from "../model.js";
 import type * as providers_espn from "../providers/espn.js";
 import type * as providers_longestTouchdowns from "../providers/longestTouchdowns.js";
 import type * as providers_sleeper from "../providers/sleeper.js";
+import type * as providers_sleeperNormalization from "../providers/sleeperNormalization.js";
 import type * as reconciliation from "../reconciliation.js";
 import type * as refresh from "../refresh.js";
 import type * as status from "../status.js";
@@ -34,6 +36,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   bootstrap: typeof bootstrap;
   crons: typeof crons;
+  cutover: typeof cutover;
   dashboard: typeof dashboard;
   history: typeof history;
   historyMaterialization: typeof historyMaterialization;
@@ -45,6 +48,7 @@ declare const fullApi: ApiFromModules<{
   "providers/espn": typeof providers_espn;
   "providers/longestTouchdowns": typeof providers_longestTouchdowns;
   "providers/sleeper": typeof providers_sleeper;
+  "providers/sleeperNormalization": typeof providers_sleeperNormalization;
   reconciliation: typeof reconciliation;
   refresh: typeof refresh;
   status: typeof status;

@@ -136,6 +136,7 @@ export const shreve = internalMutation({
 
 export const attachSleeperLeague = internalMutation({
   args: {
+    seasonYear: v.number(),
     externalLeagueId: v.string(),
     previousExternalLeagueId: v.optional(v.string()),
   },
@@ -145,13 +146,33 @@ export const attachSleeperLeague = internalMutation({
       .withIndex("by_slug", (q) => q.eq("slug", SHREVE_SLUG))
       .unique();
     if (!league) throw new Error("Canonical Shreve league is missing.");
-    const season = await ctx.db
+    let season = await ctx.db
       .query("leagueSeasons")
       .withIndex("by_league_year", (q) =>
-        q.eq("leagueId", league._id).eq("year", 2026),
+        q.eq("leagueId", league._id).eq("year", args.seasonYear),
       )
       .unique();
-    if (!season) throw new Error("Planned 2026 Sleeper season is missing.");
+    if (!season) {
+      const seasonId = await ctx.db.insert("leagueSeasons", {
+        leagueId: league._id,
+        year: args.seasonYear,
+        status: "preseason",
+        authoritativeProvider: "sleeper",
+        regularSeasonWeeks: 14,
+      });
+      season = await ctx.db.get(seasonId);
+    }
+    if (!season) {
+      throw new Error(`Failed to create the ${args.seasonYear} Sleeper season.`);
+    }
+    if (season.authoritativeProvider !== "sleeper") {
+      throw new Error(
+        `Season ${args.seasonYear} is authoritative from ${season.authoritativeProvider}, not Sleeper.`,
+      );
+    }
+    if (season.status === "planned") {
+      await ctx.db.patch(season._id, { status: "preseason" });
+    }
     const existing = await ctx.db
       .query("leagueProviderRefs")
       .withIndex("by_season_provider", (q) =>

@@ -27,6 +27,10 @@ type RefreshResult =
       identityCrosswalkComplete: boolean;
     };
 
+type SleeperCrosswalkRow = {
+  linked: boolean;
+};
+
 export const plan = internalQuery({
   args: {},
   handler: async (ctx): Promise<RefreshPlan> => {
@@ -159,7 +163,7 @@ export const sleeper = internalAction({
     }
 
     await ctx.runMutation(internal.materialization.dashboard, { seasonYear });
-    const crosswalk = await ctx.runQuery(
+    const crosswalk: SleeperCrosswalkRow[] = await ctx.runQuery(
       internal.identityManagement.sleeperCrosswalk,
       {},
     );
