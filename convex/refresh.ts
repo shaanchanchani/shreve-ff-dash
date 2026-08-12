@@ -1,11 +1,17 @@
 import { internalAction, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { normalizeSleeperSeasonStatus } from "./seasonLifecycle";
 
 type NflState = {
   week: number;
   season: string;
   season_type: string;
+};
+
+type SleeperLeagueState = {
+  season: string;
+  status?: string | null;
 };
 
 type RefreshPlan = {
@@ -104,11 +110,20 @@ export const sleeper = internalAction({
     const externalLeagueId = process.env.SLEEPER_LEAGUE_ID;
     if (!externalLeagueId) return { status: "not_configured" };
 
-    const stateResponse = await fetch("https://api.sleeper.app/v1/state/nfl");
+    const [stateResponse, leagueResponse] = await Promise.all([
+      fetch("https://api.sleeper.app/v1/state/nfl"),
+      fetch(`https://api.sleeper.app/v1/league/${externalLeagueId}`),
+    ]);
     if (!stateResponse.ok) {
       throw new Error(`Sleeper NFL state returned HTTP ${stateResponse.status}.`);
     }
-    const nflState = (await stateResponse.json()) as NflState;
+    if (!leagueResponse.ok) {
+      throw new Error(`Sleeper league returned HTTP ${leagueResponse.status}.`);
+    }
+    const [nflState, leagueState] = (await Promise.all([
+      stateResponse.json(),
+      leagueResponse.json(),
+    ])) as [NflState, SleeperLeagueState];
     const seasonYear = Number.parseInt(
       process.env.SLEEPER_SEASON_YEAR ?? nflState.season,
       10,
@@ -116,6 +131,21 @@ export const sleeper = internalAction({
     if (Number.parseInt(nflState.season, 10) !== seasonYear) {
       return { status: "offseason", seasonYear, seasonType: nflState.season_type };
     }
+    if (Number.parseInt(leagueState.season, 10) !== seasonYear) {
+      throw new Error(
+        `Configured Sleeper league season ${leagueState.season} does not match ${seasonYear}.`,
+      );
+    }
+
+    await ctx.runMutation(internal.bootstrap.advanceSeasonStatus, {
+      seasonYear,
+      provider: "sleeper",
+      status: normalizeSleeperSeasonStatus({
+        leagueStatus: leagueState.status,
+        nflSeasonType: nflState.season_type,
+        nflWeek: nflState.week,
+      }),
+    });
 
     const plan: RefreshPlan = await ctx.runQuery(internal.refresh.plan, {});
     const sixHours = 6 * 60 * 60 * 1_000;

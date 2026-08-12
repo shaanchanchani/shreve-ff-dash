@@ -75,6 +75,89 @@ export const skipSyncRun = internalMutation({
   },
 });
 
+export const upsertSeasonRules = internalMutation({
+  args: {
+    syncRunId: v.id("syncRuns"),
+    contentHash: v.string(),
+    rules: v.object({
+      effectiveWeek: v.number(),
+      regularSeasonWeeks: v.number(),
+      playoffTeamCount: v.number(),
+      playoffByeCount: v.number(),
+      medianWinEnabled: v.boolean(),
+      rosterSlots: v.array(
+        v.object({ slot: v.string(), count: v.number() }),
+      ),
+      pointRules: v.array(
+        v.object({ stat: v.string(), points: v.number() }),
+      ),
+    }),
+  },
+  handler: async (ctx, args) => {
+    const syncRun = await ctx.db.get(args.syncRunId);
+    if (!syncRun || syncRun.status !== "running") {
+      throw new Error("Sync Run is missing or is not running.");
+    }
+    const providerRef = await ctx.db
+      .query("leagueProviderRefs")
+      .withIndex("by_season_provider", (q) =>
+        q
+          .eq("leagueSeasonId", syncRun.leagueSeasonId)
+          .eq("provider", syncRun.provider),
+      )
+      .unique();
+    if (!providerRef) throw new Error("League provider reference is missing.");
+
+    const values = {
+      ...args.rules,
+      sourceHash: args.contentHash,
+      sourceSyncRunId: syncRun._id,
+    };
+    const existing = await ctx.db
+      .query("scoringRuleVersions")
+      .withIndex("by_season_effective_week", (q) =>
+        q
+          .eq("leagueSeasonId", syncRun.leagueSeasonId)
+          .eq("effectiveWeek", args.rules.effectiveWeek),
+      )
+      .unique();
+    if (existing) await ctx.db.patch(existing._id, values);
+    else {
+      await ctx.db.insert("scoringRuleVersions", {
+        leagueSeasonId: syncRun.leagueSeasonId,
+        ...values,
+      });
+    }
+
+    const completedAt = Date.now();
+    await ctx.db.patch(syncRun.leagueSeasonId, {
+      regularSeasonWeeks: args.rules.regularSeasonWeeks,
+    });
+    await ctx.db.insert("sourceFetches", {
+      syncRunId: syncRun._id,
+      provider: syncRun.provider,
+      resource: "season_rules",
+      externalKey: providerRef.externalLeagueId,
+      fetchedAt: completedAt,
+      contentHash: args.contentHash,
+      recordCount: 1,
+    });
+    await ctx.db.patch(providerRef._id, { lastSyncedAt: completedAt });
+    await ctx.db.patch(syncRun._id, {
+      status: "succeeded",
+      completedAt,
+    });
+    return {
+      seasonYear: (await ctx.db.get(syncRun.leagueSeasonId))?.year,
+      effectiveWeek: args.rules.effectiveWeek,
+      regularSeasonWeeks: args.rules.regularSeasonWeeks,
+      playoffTeamCount: args.rules.playoffTeamCount,
+      playoffByeCount: args.rules.playoffByeCount,
+      medianWinEnabled: args.rules.medianWinEnabled,
+    };
+  },
+});
+
 export const upsertSeasonEntries = internalMutation({
   args: {
     syncRunId: v.id("syncRuns"),

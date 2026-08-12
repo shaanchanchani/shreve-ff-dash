@@ -6,6 +6,7 @@ import { Client } from "espn-fantasy-football-api/node";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
+import { normalizeEspnSeasonRules } from "../seasonRules";
 
 type EspnTeam = {
   id: number;
@@ -45,6 +46,18 @@ type EspnDraftPick = {
   isKeeper?: boolean | null;
 };
 
+type EspnLeagueInfo = {
+  rosterSettings?: {
+    lineupPositionCount?: Record<string, number | null> | null;
+  } | null;
+  scheduleSettings?: {
+    numberOfRegularSeasonMatchups?: number | null;
+    regularSeasonMatchupLength?: number | null;
+    numberOfPlayoffTeams?: number | null;
+  } | null;
+  scoringSettings?: Record<string, number | null> | null;
+};
+
 type SeasonEntrySyncResult = {
   teamCount: number;
   membersCreated: number;
@@ -70,6 +83,15 @@ type DraftSyncResult = {
   picksCreated: number;
   picksUpdated: number;
   playersCreated: number;
+};
+
+type SeasonRulesSyncResult = {
+  seasonYear?: number;
+  effectiveWeek: number;
+  regularSeasonWeeks: number;
+  playoffTeamCount: number;
+  playoffByeCount: number;
+  medianWinEnabled: boolean;
 };
 
 const weekStateValidator = v.union(
@@ -161,11 +183,53 @@ export const probe = internalAction({
   },
 });
 
+export const syncSeasonRules = internalAction({
+  args: { seasonYear: v.number() },
+  handler: async (ctx, args): Promise<SeasonRulesSyncResult> => {
+    const syncRunId: Id<"syncRuns"> = await ctx.runMutation(
+      internal.ingestion.startSyncRun,
+      {
+        seasonYear: args.seasonYear,
+        provider: "espn",
+        scope: "season_rules",
+      },
+    );
+    try {
+      const league = (await createClient().getLeagueInfo({
+        seasonId: args.seasonYear,
+      })) as EspnLeagueInfo;
+      const rules = normalizeEspnSeasonRules(league, {
+        // Shreve awards an additional League Median result in its dashboard.
+        medianWinEnabled: true,
+      });
+      const contentHash = createHash("sha256")
+        .update(JSON.stringify(rules))
+        .digest("hex");
+      return await ctx.runMutation(internal.ingestion.upsertSeasonRules, {
+        syncRunId,
+        contentHash,
+        rules,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unknown ESPN rules failure";
+      await ctx.runMutation(internal.ingestion.failSyncRun, {
+        syncRunId,
+        error: message,
+      });
+      throw error;
+    }
+  },
+});
+
 export const syncSeasonEntries = internalAction({
   args: {
     seasonYear: v.number(),
   },
   handler: async (ctx, args): Promise<SeasonEntrySyncResult> => {
+    await ctx.runAction(internal.providers.espn.syncSeasonRules, {
+      seasonYear: args.seasonYear,
+    });
     const syncRunId: Id<"syncRuns"> = await ctx.runMutation(
       internal.ingestion.startSyncRun,
       {

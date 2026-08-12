@@ -1,5 +1,7 @@
 import { internalMutation } from "./_generated/server";
 import { v } from "convex/values";
+import { providerValidator, seasonStatusValidator } from "./model";
+import { seasonStatusCanAdvance } from "./seasonLifecycle";
 
 const SHREVE_SLUG = "shreve";
 const ESPN_LEAGUE_ID = "1918224288";
@@ -194,5 +196,46 @@ export const attachSleeperLeague = internalMutation({
       provider: "sleeper",
       ...values,
     });
+  },
+});
+
+export const advanceSeasonStatus = internalMutation({
+  args: {
+    seasonYear: v.number(),
+    provider: providerValidator,
+    status: seasonStatusValidator,
+  },
+  handler: async (ctx, args) => {
+    const league = await ctx.db
+      .query("leagues")
+      .withIndex("by_slug", (q) => q.eq("slug", SHREVE_SLUG))
+      .unique();
+    if (!league) throw new Error("Canonical Shreve league is missing.");
+    const season = await ctx.db
+      .query("leagueSeasons")
+      .withIndex("by_league_year", (q) =>
+        q.eq("leagueId", league._id).eq("year", args.seasonYear),
+      )
+      .unique();
+    if (!season) throw new Error(`League season ${args.seasonYear} is missing.`);
+    if (season.authoritativeProvider !== args.provider) {
+      throw new Error(
+        `${args.provider} cannot advance a ${season.authoritativeProvider} season.`,
+      );
+    }
+    if (!seasonStatusCanAdvance(season.status, args.status)) {
+      throw new Error(
+        `League Season status cannot regress from ${season.status} to ${args.status}.`,
+      );
+    }
+    if (season.status !== args.status) {
+      await ctx.db.patch(season._id, { status: args.status });
+    }
+    return {
+      seasonYear: args.seasonYear,
+      previousStatus: season.status,
+      status: args.status,
+      changed: season.status !== args.status,
+    };
   },
 });

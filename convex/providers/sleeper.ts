@@ -10,6 +10,8 @@ import {
   type SleeperMatchupPayload,
   type SleeperPlayerPayload,
 } from "./sleeperNormalization";
+import { normalizeSleeperSeasonRules } from "../seasonRules";
+import { normalizeSleeperSeasonStatus } from "../seasonLifecycle";
 
 type SleeperUser = {
   user_id: string;
@@ -133,7 +135,25 @@ type LeaguePayloadVerificationResult = {
   draftPickCount: number;
   transactionCount: number;
   transactionMovementCount: number;
+  seasonRules: {
+    regularSeasonWeeks: number;
+    playoffTeamCount: number;
+    playoffByeCount: number;
+    medianWinEnabled: boolean;
+    rosterSlotCount: number;
+    pointRuleCount: number;
+  };
+  seasonStatus: "planned" | "preseason" | "active" | "complete";
   issues: string[];
+};
+
+type SeasonRulesSyncResult = {
+  seasonYear?: number;
+  effectiveWeek: number;
+  regularSeasonWeeks: number;
+  playoffTeamCount: number;
+  playoffByeCount: number;
+  medianWinEnabled: boolean;
 };
 
 const weekStateValidator = v.union(
@@ -232,6 +252,7 @@ export const verifyLeaguePayload = internalAction({
       week: args.week,
       state: "final",
     });
+    const seasonRules = normalizeSleeperSeasonRules(league);
     issues.push(...normalized.issues);
     for (const matchup of normalized.matchups) {
       for (const participant of matchup.participants) {
@@ -307,8 +328,73 @@ export const verifyLeaguePayload = internalAction({
       draftPickCount: draftPicks.length,
       transactionCount: completeTransactions.length,
       transactionMovementCount,
+      seasonRules: {
+        regularSeasonWeeks: seasonRules.regularSeasonWeeks,
+        playoffTeamCount: seasonRules.playoffTeamCount,
+        playoffByeCount: seasonRules.playoffByeCount,
+        medianWinEnabled: seasonRules.medianWinEnabled,
+        rosterSlotCount: seasonRules.rosterSlots.reduce(
+          (total, slot) => total + slot.count,
+          0,
+        ),
+        pointRuleCount: seasonRules.pointRules.length,
+      },
+      seasonStatus: normalizeSleeperSeasonStatus({
+        leagueStatus: league.status,
+      }),
       issues,
     };
+  },
+});
+
+export const syncSeasonRules = internalAction({
+  args: {
+    seasonYear: v.number(),
+    externalLeagueId: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<SeasonRulesSyncResult> => {
+    const externalLeagueId = requiredLeagueId(args.externalLeagueId);
+    const league = await getJson<SleeperLeaguePayload>(
+      `https://api.sleeper.app/v1/league/${externalLeagueId}`,
+    );
+    if (Number.parseInt(league.season, 10) !== args.seasonYear) {
+      throw new Error(
+        `Sleeper league season ${league.season} does not match ${args.seasonYear}.`,
+      );
+    }
+    await ctx.runMutation(internal.bootstrap.attachSleeperLeague, {
+      seasonYear: args.seasonYear,
+      externalLeagueId,
+      ...(league.previous_league_id
+        ? { previousExternalLeagueId: league.previous_league_id }
+        : {}),
+    });
+    const syncRunId: Id<"syncRuns"> = await ctx.runMutation(
+      internal.ingestion.startSyncRun,
+      {
+        seasonYear: args.seasonYear,
+        provider: "sleeper",
+        scope: "season_rules",
+      },
+    );
+    try {
+      const rules = normalizeSleeperSeasonRules(league);
+      return await ctx.runMutation(internal.ingestion.upsertSeasonRules, {
+        syncRunId,
+        contentHash: await contentHash(rules),
+        rules,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Unknown Sleeper rules failure";
+      await ctx.runMutation(internal.ingestion.failSyncRun, {
+        syncRunId,
+        error: message,
+      });
+      throw error;
+    }
   },
 });
 
@@ -330,6 +416,15 @@ export const syncSeasonEntries = internalAction({
         `Sleeper league season ${league.season} does not match ${args.seasonYear}.`,
       );
     }
+    await ctx.runAction(internal.providers.sleeper.syncSeasonRules, {
+      seasonYear: args.seasonYear,
+      externalLeagueId,
+    });
+    await ctx.runMutation(internal.bootstrap.advanceSeasonStatus, {
+      seasonYear: args.seasonYear,
+      provider: "sleeper",
+      status: normalizeSleeperSeasonStatus({ leagueStatus: league.status }),
+    });
     await ctx.runMutation(internal.bootstrap.attachSleeperLeague, {
       seasonYear: args.seasonYear,
       externalLeagueId,

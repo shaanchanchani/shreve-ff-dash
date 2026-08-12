@@ -11,6 +11,7 @@
 - **Matchup** — a contest in a Week. Participants are modeled separately because providers disagree about home/away semantics.
 - **Lineup Entry** — one player's scored participation for one Matchup Participant, including whether the player started.
 - **Scoring Rule Version** — the normalized scoring and roster configuration effective from a particular week.
+- **League Season Lifecycle** — the monotonic `planned → preseason → active → complete` progression of a League Season. Only its authoritative Provider Adapter may advance it.
 - **Sync Run** — one observable, retryable attempt to ingest provider data into the canonical model.
 - **Dashboard Snapshot** — a small, precomputed read model served to the application; it is derived from canonical facts and is never the source of truth.
 
@@ -24,6 +25,8 @@
 6. Provider imports are idempotent and traceable to a Sync Run.
 7. Derived prizes, standings, and analytics record their calculation version and source Sync Run.
 8. Uncertain identity matches remain unresolved; the importer must not silently merge them by display name.
+9. Calculations read League Season behavior from canonical Scoring Rule Versions, never directly from provider settings or hard-coded team counts.
+10. League Season Lifecycle may advance but never regress during normal provider refreshes.
 
 ## Provider policy
 

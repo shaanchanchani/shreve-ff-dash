@@ -72,6 +72,12 @@ export interface LeagueMedianStat {
 }
 
 export interface PrizeData {
+  rules?: {
+    regularSeasonWeeks: number;
+    playoffTeamCount: number;
+    playoffByeCount: number;
+    medianWinEnabled: boolean;
+  };
   seasonHighScore: HighScore | null;
   weeklyHighScores: WeeklyWinner[];
   survivorEliminations: EliminatedTeam[];

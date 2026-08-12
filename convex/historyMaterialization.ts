@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 
-const CALCULATION_VERSION = 1;
+const CALCULATION_VERSION = 2;
 
 const normalizeRosterSlot = (slot: string) => {
   if (slot === "RB/WR/TE" || slot === "RB/WR") return "FLEX";
@@ -30,7 +30,6 @@ export const season = internalMutation({
 
     const [
       entries,
-      entryRefs,
       memberships,
       members,
       weeks,
@@ -49,7 +48,6 @@ export const season = internalMutation({
           q.eq("leagueSeasonId", leagueSeason._id),
         )
         .collect(),
-      ctx.db.query("seasonEntryProviderRefs").collect(),
       ctx.db.query("seasonEntryMembers").collect(),
       ctx.db.query("members").collect(),
       ctx.db
@@ -88,20 +86,7 @@ export const season = internalMutation({
       ctx.db.query("transactionMovements").collect(),
     ]);
 
-    const entryIds = new Set(entries.map((entry) => entry._id));
     const entryById = new Map(entries.map((entry) => [entry._id, entry]));
-    const externalTeamIdByEntry = new Map(
-      entryRefs
-        .filter(
-          (reference) =>
-            reference.provider === leagueSeason.authoritativeProvider &&
-            entryIds.has(reference.seasonEntryId),
-        )
-        .map((reference) => [
-          reference.seasonEntryId,
-          Number.parseInt(reference.externalEntryId, 10),
-        ]),
-    );
     const memberById = new Map(members.map((member) => [member._id, member]));
     const memberByEntry = new Map(
       memberships
@@ -116,15 +101,17 @@ export const season = internalMutation({
         ]),
     );
     const playerById = new Map(players.map((player) => [player._id, player]));
-    const espnPlayerIdByPlayer = new Map(
-      playerRefs
-        .filter((reference) => reference.provider === "espn")
-        .map((reference) => [
+    const espnPlayerIdByPlayer = new Map<Id<"players">, string>();
+    for (const reference of playerRefs) {
+      if (reference.provider === "espn") {
+        espnPlayerIdByPlayer.set(
           reference.playerId,
-          Number.parseInt(reference.externalPlayerId, 10),
-        ]),
-    );
+          reference.externalPlayerId,
+        );
+      }
+    }
     const draftedPlayerIds = new Set(draftPicks.map((pick) => pick.playerId));
+    const playerMedia = new Map<string, string>();
     const matchupIds = new Set(matchups.map((matchup) => matchup._id));
     const participants = allParticipants.filter((participant) =>
       matchupIds.has(participant.matchupId),
@@ -229,8 +216,14 @@ export const season = internalMutation({
         const roster = (lineupsByParticipant.get(participant._id) ?? [])
           .flatMap((lineup) => {
             const player = playerById.get(lineup.playerId);
-            const externalPlayerId = espnPlayerIdByPlayer.get(lineup.playerId);
-            if (!player || !Number.isFinite(externalPlayerId)) return [];
+            if (!player) return [];
+            const espnPlayerId = espnPlayerIdByPlayer.get(lineup.playerId);
+            if (espnPlayerId) {
+              playerMedia.set(
+                String(player._id),
+                `https://a.espncdn.com/i/headshots/nfl/players/full/${espnPlayerId}.png`,
+              );
+            }
             const originallyDrafted = draftedPlayerIds.has(lineup.playerId);
             const claimedBy = waiverClaims.get(lineup.playerId);
             const eligibleClaim =
@@ -249,7 +242,7 @@ export const season = internalMutation({
             if (effectiveWaiverPoints) waiverPoints += effectiveWaiverPoints;
             return [
               {
-                id: externalPlayerId!,
+                id: String(player._id),
                 name: player.fullName,
                 position: normalizeRosterSlot(lineup.rosterSlot),
                 points: lineup.points,
@@ -266,7 +259,7 @@ export const season = internalMutation({
         return {
           ownerKey: member.canonicalKey,
           ownerName: member.displayName,
-          teamId: externalTeamIdByEntry.get(entry._id) ?? 0,
+          teamId: String(entry._id),
           teamName: entry.displayName,
           ...(entry.avatarUrl ? { logoURL: entry.avatarUrl } : {}),
           score: participant.score ?? 0,
@@ -301,7 +294,7 @@ export const season = internalMutation({
         const member = memberByEntry.get(entry._id);
         if (!member) return null;
         return {
-          teamId: externalTeamIdByEntry.get(entry._id) ?? 0,
+          teamId: String(entry._id),
           teamName: entry.displayName,
           ownerName: member.displayName,
           ownerKey: member.canonicalKey,
@@ -324,6 +317,10 @@ export const season = internalMutation({
         teams,
       },
       matchups: historicalMatchups,
+      playerMedia: Array.from(playerMedia, ([playerId, headshotURL]) => ({
+        playerId,
+        headshotURL,
+      })),
     };
     const existing = await ctx.db
       .query("historySeasonSnapshots")

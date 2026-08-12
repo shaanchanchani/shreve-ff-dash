@@ -13,6 +13,10 @@ data model.
 
 Provider adapters ingest ESPN or Sleeper payloads into canonical League,
 Season, Member, Entry, Matchup, Player, Lineup, Draft, and Transaction facts.
+They also normalize provider settings into versioned Season Rules—regular-season
+length, playoff teams and byes, League Median behavior, roster slots, and point
+rules—and advance the Season Lifecycle monotonically from planned through
+complete.
 Calculations materialize small dashboard snapshots and one history snapshot per
 season. The browser subscribes only to those warm read models; it never waits on
 a provider API.
@@ -62,6 +66,7 @@ npm run typecheck
 npm run lint
 npm run build
 npm run verify:dashboard-parity
+npm run verify:history-canonical
 ```
 
 Canonical data can be reconciled independently of the UI:
@@ -73,6 +78,11 @@ npx convex run --prod reconciliation:season '{"seasonYear":2025}'
 
 A passing reconciliation has no structural issues, score mismatches, or
 unresolved identity exceptions.
+
+The history verifier additionally proves that every historical roster entry is
+preserved with canonical Player and Season Entry identities. ESPN player IDs
+are used only for optional headshot media, so Sleeper-only rookies remain in
+history rather than being silently dropped.
 
 The Sleeper adapter can also be exercised against any league without writing
 that league into Convex. This runs the same normalization used by production
@@ -123,9 +133,11 @@ the real league ID is available.
    ```
 
    The cutover result must say `"ready": true`. Its blocker codes cover the
-   authoritative provider, league configuration, explicit owner crosswalk,
+   authoritative provider, league configuration, canonical Season Rules,
+   provider-driven Season Lifecycle, explicit owner crosswalk,
    unresolved identities, matchup/lineup integrity, provider score parity,
-   sync freshness, player catalog freshness, and the warm dashboard snapshot.
+   sync freshness, player catalog freshness, and the warm dashboard and history
+   snapshots.
    Missing ESPN IDs for legitimate Sleeper-only players are warnings, not
    blockers. The cron refreshes the current week every five minutes, completed
    weeks once, entries and drafts every six hours, and Sleeper's player catalog

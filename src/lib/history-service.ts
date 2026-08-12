@@ -424,7 +424,8 @@ const buildMatchupTeam = (
     roster.forEach((player) => {
       if (player.wasDraftedByTeam) return; // Already drafted globally
 
-      const claimedByTeamId = waiverClaims.get(player.id);
+      const claimedByTeamId =
+        typeof player.id === "number" ? waiverClaims.get(player.id) : undefined;
       if (claimedByTeamId && claimedByTeamId !== meta.teamId) {
          // Claimed by someone else (and not dropped in between).
          // Ineligible for points.

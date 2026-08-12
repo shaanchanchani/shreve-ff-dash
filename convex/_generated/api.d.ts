@@ -25,6 +25,8 @@ import type * as providers_sleeper from "../providers/sleeper.js";
 import type * as providers_sleeperNormalization from "../providers/sleeperNormalization.js";
 import type * as reconciliation from "../reconciliation.js";
 import type * as refresh from "../refresh.js";
+import type * as seasonLifecycle from "../seasonLifecycle.js";
+import type * as seasonRules from "../seasonRules.js";
 import type * as status from "../status.js";
 
 import type {
@@ -51,6 +53,8 @@ declare const fullApi: ApiFromModules<{
   "providers/sleeperNormalization": typeof providers_sleeperNormalization;
   reconciliation: typeof reconciliation;
   refresh: typeof refresh;
+  seasonLifecycle: typeof seasonLifecycle;
+  seasonRules: typeof seasonRules;
   status: typeof status;
 }>;
 

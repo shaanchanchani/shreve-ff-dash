@@ -15,6 +15,16 @@ export const all = query({
         (left, right) =>
           right.seasonId - left.seasonId || right.week - left.week,
       );
+    const playerMedia = Object.fromEntries(
+      payloads.flatMap((payload) =>
+        (payload.playerMedia ?? []).map(
+          (entry: { playerId: string; headshotURL: string }) => [
+            entry.playerId,
+            entry.headshotURL,
+          ],
+        ),
+      ),
+    );
 
     const owners = new Map();
     const ensureOwner = (ownerKey: string, ownerName: string) => {
@@ -89,6 +99,7 @@ export const all = query({
       owners: ownerSummaries,
       matchups,
       seasons,
+      playerMedia,
       generatedAt: new Date(generatedAt).toISOString(),
       notes: [
         "Data is served from canonical Convex season snapshots.",

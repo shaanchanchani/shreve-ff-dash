@@ -3,7 +3,14 @@ export type SleeperLeaguePayload = {
   season: string;
   draft_id?: string | null;
   previous_league_id?: string | null;
+  status?: string | null;
   roster_positions?: string[] | null;
+  settings?: {
+    playoff_week_start?: number | null;
+    playoff_teams?: number | null;
+    league_average_match?: number | null;
+  } | null;
+  scoring_settings?: Record<string, number | null> | null;
 };
 
 export type SleeperMatchupPayload = {

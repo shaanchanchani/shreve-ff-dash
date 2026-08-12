@@ -3,8 +3,6 @@ import { internalMutation } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 
 const CALCULATION_VERSION = 1;
-const PLAYOFF_TEAM_COUNT = 6;
-const BYE_TEAM_COUNT = 2;
 
 type ScoredParticipant = {
   participant: Doc<"matchupParticipants">;
@@ -45,6 +43,7 @@ export const dashboard = internalMutation({
       players,
       playerProviderRefs,
       memberships,
+      scoringRuleVersions,
     ] = await Promise.all([
         ctx.db
           .query("seasonEntries")
@@ -70,11 +69,31 @@ export const dashboard = internalMutation({
         ctx.db.query("players").collect(),
         ctx.db.query("playerProviderRefs").collect(),
         ctx.db.query("seasonEntryMembers").collect(),
+        ctx.db
+          .query("scoringRuleVersions")
+          .withIndex("by_season_effective_week", (q) =>
+            q.eq("leagueSeasonId", season._id),
+          )
+          .collect(),
       ]);
 
     if (entries.length === 0 || matchups.length === 0) {
       throw new Error("Canonical season facts must be imported before materialization.");
     }
+    if (scoringRuleVersions.length === 0) {
+      throw new Error(
+        "Canonical Season Rules must be imported before materialization.",
+      );
+    }
+    const sortedRuleVersions = [...scoringRuleVersions].sort(
+      (left, right) => left.effectiveWeek - right.effectiveWeek,
+    );
+    const currentRules = sortedRuleVersions.at(-1)!;
+    const rulesForWeek = (weekNumber: number) =>
+      [...sortedRuleVersions]
+        .reverse()
+        .find((rules) => rules.effectiveWeek <= weekNumber) ??
+      sortedRuleVersions[0];
 
     const entryById = new Map(entries.map((entry) => [entry._id, entry]));
     const playerById = new Map(players.map((player) => [player._id, player]));
@@ -188,10 +207,13 @@ export const dashboard = internalMutation({
           ? (orderedScores[midpoint - 1] + orderedScores[midpoint]) / 2
           : orderedScores[midpoint];
 
-      for (const scored of scoredParticipants) {
-        const standing = standingByEntry.get(scored.entry._id)!;
-        if (scored.score > median) standing.wins += 1;
-        else standing.losses += 1;
+      if (rulesForWeek(week.number).medianWinEnabled) {
+        for (const scored of scoredParticipants) {
+          const standing = standingByEntry.get(scored.entry._id)!;
+          if (scored.score > median) standing.wins += 1;
+          else if (scored.score < median) standing.losses += 1;
+          else standing.ties += 1;
+        }
       }
       for (const matchup of weekMatchups) {
         const pair = participantsByMatchup.get(matchup._id) ?? [];
@@ -260,10 +282,10 @@ export const dashboard = internalMutation({
       ties: stats.ties,
       pointsFor: Math.round(stats.pointsFor * 100) / 100,
       logoURL: entry.avatarUrl,
-      playoffOdds: index < PLAYOFF_TEAM_COUNT ? 1 : 0,
-      byeOdds: index < BYE_TEAM_COUNT ? 1 : 0,
-      clinchedPlayoffs: index < PLAYOFF_TEAM_COUNT,
-      clinchedBye: index < BYE_TEAM_COUNT,
+      playoffOdds: index < currentRules.playoffTeamCount ? 1 : 0,
+      byeOdds: index < currentRules.playoffByeCount ? 1 : 0,
+      clinchedPlayoffs: index < currentRules.playoffTeamCount,
+      clinchedBye: index < currentRules.playoffByeCount,
     }));
 
     const unluckyTeams = entries
@@ -324,6 +346,12 @@ export const dashboard = internalMutation({
 
     const payload = {
       seasonYear: args.seasonYear,
+      rules: {
+        regularSeasonWeeks: currentRules.regularSeasonWeeks,
+        playoffTeamCount: currentRules.playoffTeamCount,
+        playoffByeCount: currentRules.playoffByeCount,
+        medianWinEnabled: currentRules.medianWinEnabled,
+      },
       seasonHighScore,
       weeklyHighScores,
       survivorEliminations,

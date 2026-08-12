@@ -25,10 +25,12 @@ type CutoverReadiness = {
     providerPlayers: number;
     dualProviderPlayers: number;
     unresolvedIdentityExceptions: number;
+    seasonRuleVersions: number;
   };
   freshness: {
     lastSuccessfulSyncAt: number | null;
     dashboardGeneratedAt: number | null;
+    historyGeneratedAt: number | null;
     playerCatalogFetchedAt: number | null;
   };
   blockers: Finding[];
@@ -44,6 +46,7 @@ const emptyCounts = () => ({
   providerPlayers: 0,
   dualProviderPlayers: 0,
   unresolvedIdentityExceptions: 0,
+  seasonRuleVersions: 0,
 });
 
 export const readiness = internalQuery({
@@ -86,6 +89,7 @@ export const readiness = internalQuery({
         freshness: {
           lastSuccessfulSyncAt: null,
           dashboardGeneratedAt: null,
+          historyGeneratedAt: null,
           playerCatalogFetchedAt: null,
         },
         blockers,
@@ -131,7 +135,9 @@ export const readiness = internalQuery({
       draftPicks,
       exceptions,
       dashboard,
+      historySnapshot,
       providerRuns,
+      seasonRuleVersions,
     ] = await Promise.all([
       ctx.db
         .query("seasonEntries")
@@ -168,11 +174,38 @@ export const readiness = internalQuery({
         .order("desc")
         .first(),
       ctx.db
+        .query("historySeasonSnapshots")
+        .withIndex("by_season", (q) => q.eq("leagueSeasonId", season._id))
+        .unique(),
+      ctx.db
         .query("syncRuns")
         .withIndex("by_provider_started", (q) => q.eq("provider", args.provider))
         .order("desc")
         .collect(),
+      ctx.db
+        .query("scoringRuleVersions")
+        .withIndex("by_season_effective_week", (q) =>
+          q.eq("leagueSeasonId", season._id),
+        )
+        .collect(),
     ]);
+
+    if (seasonRuleVersions.length === 0) {
+      blockers.push({
+        code: "season_rules_missing",
+        message: "Canonical Season Rules have not been imported.",
+      });
+    } else {
+      const currentRules = [...seasonRuleVersions].sort(
+        (left, right) => right.effectiveWeek - left.effectiveWeek,
+      )[0];
+      if (currentRules.regularSeasonWeeks !== season.regularSeasonWeeks) {
+        blockers.push({
+          code: "season_rules_mismatch",
+          message: `League Season has ${season.regularSeasonWeeks} regular weeks, but its current rules specify ${currentRules.regularSeasonWeeks}.`,
+        });
+      }
+    }
 
     const entryIds = new Set(entries.map((entry) => String(entry._id)));
     const entryRefs = allEntryRefs.filter(
@@ -352,6 +385,15 @@ export const readiness = internalQuery({
     const latestSuccessfulRun = dashboardInputRuns.find(
       (run) => run.status === "succeeded" && run.completedAt !== undefined,
     );
+    const latestHistoryInputRun = seasonRuns.find(
+      (run) =>
+        run.status === "succeeded" &&
+        run.completedAt !== undefined &&
+        (run.scope === "season_entries" ||
+          run.scope === "draft" ||
+          run.scope.startsWith("week:") ||
+          run.scope.startsWith("transactions:")),
+    );
     const seasonEntriesRun = seasonRuns.find(
       (run) => run.scope === "season_entries" && run.status === "succeeded",
     );
@@ -384,6 +426,21 @@ export const readiness = internalQuery({
       blockers.push({
         code: "dashboard_snapshot_stale",
         message: "The dashboard snapshot predates the latest successful provider sync.",
+      });
+    }
+    if (matchups.length > 0 && !historySnapshot) {
+      blockers.push({
+        code: "history_snapshot_missing",
+        message: "Canonical matchups exist, but the warm history snapshot has not been materialized.",
+      });
+    } else if (
+      historySnapshot &&
+      latestHistoryInputRun?.completedAt !== undefined &&
+      historySnapshot.generatedAt < latestHistoryInputRun.completedAt
+    ) {
+      blockers.push({
+        code: "history_snapshot_stale",
+        message: "The history snapshot predates the latest successful provider sync.",
       });
     }
 
@@ -474,10 +531,12 @@ export const readiness = internalQuery({
         providerPlayers: providerPlayerIds.size,
         dualProviderPlayers,
         unresolvedIdentityExceptions: exceptions.length,
+        seasonRuleVersions: seasonRuleVersions.length,
       },
       freshness: {
         lastSuccessfulSyncAt,
         dashboardGeneratedAt: dashboard?.generatedAt ?? null,
+        historyGeneratedAt: historySnapshot?.generatedAt ?? null,
         playerCatalogFetchedAt,
       },
       blockers,

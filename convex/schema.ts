@@ -237,6 +237,7 @@ export default defineSchema({
     effectiveWeek: v.number(),
     regularSeasonWeeks: v.number(),
     playoffTeamCount: v.number(),
+    playoffByeCount: v.number(),
     medianWinEnabled: v.boolean(),
     rosterSlots: v.array(
       v.object({
@@ -251,6 +252,7 @@ export default defineSchema({
       }),
     ),
     sourceHash: v.string(),
+    sourceSyncRunId: v.id("syncRuns"),
   }).index("by_season_effective_week", ["leagueSeasonId", "effectiveWeek"]),
 
   syncRuns: defineTable({
