@@ -1,17 +1,18 @@
 export type HistoricalPlayer = {
-  id: number;
+  id: string | number;
   name: string;
   position: string;
   points: number;
   wasDraftedByTeam?: boolean;
   realPosition?: string;
   effectiveWaiverPoints?: number;
+  headshotURL?: string;
 };
 
 export type HistoricalMatchupTeam = {
   ownerKey: string;
   ownerName: string;
-  teamId: number;
+  teamId: string | number;
   teamName: string;
   logoURL?: string;
   score: number;
@@ -48,7 +49,7 @@ export type SeasonDescriptor = {
   seasonId: number;
   hasRosterData: boolean;
   teams: Array<{
-    teamId: number;
+    teamId: string | number;
     teamName: string;
     ownerName: string;
     ownerKey: string;
@@ -60,6 +61,7 @@ export type LeagueHistoryResponse = {
   owners: OwnerSummary[];
   matchups: HistoricalMatchup[];
   seasons: SeasonDescriptor[];
+  playerMedia?: Record<string, string>;
   generatedAt: string;
   notes: string[];
 };

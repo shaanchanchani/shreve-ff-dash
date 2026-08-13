@@ -408,7 +408,7 @@ const RosterColumn = ({ team }: { team: HistoricalMatchupTeam }) => {
               className="flex items-center gap-2"
             >
               <div className="relative">
-                 <PlayerHeadshot playerId={player.id} className="size-6 shrink-0 rounded-full bg-black/40" />
+                 <PlayerHeadshot playerId={player.id} headshotURL={player.headshotURL} className="size-6 shrink-0 rounded-full bg-black/40" />
                  {player.wasDraftedByTeam === false && (
                     <div className="absolute -bottom-0.5 -right-0.5 rounded-full bg-[var(--mist)] px-1 py-px text-[0.3rem] font-bold text-black uppercase tracking-wider">
                        WV
@@ -446,7 +446,7 @@ const RosterColumn = ({ team }: { team: HistoricalMatchupTeam }) => {
                 key={`${team.teamId}-${player.id}-${player.position}`}
                 className="flex items-center gap-2"
               >
-                <PlayerHeadshot playerId={player.id} className="size-5 shrink-0 rounded-full bg-black/40 grayscale" />
+                <PlayerHeadshot playerId={player.id} headshotURL={player.headshotURL} className="size-5 shrink-0 rounded-full bg-black/40 grayscale" />
                 
                 <div className="min-w-0 flex-1 flex flex-col justify-center">
                   <div className="flex items-center justify-between gap-2">
@@ -469,11 +469,23 @@ const RosterColumn = ({ team }: { team: HistoricalMatchupTeam }) => {
   );
 };
 
-const PlayerHeadshot = ({ playerId, className }: { playerId: number, className?: string }) => {
+const PlayerHeadshot = ({
+  playerId,
+  headshotURL,
+  className,
+}: {
+  playerId: string | number;
+  headshotURL?: string;
+  className?: string;
+}) => {
   const [error, setError] = useState(false);
-  const url = `https://a.espncdn.com/i/headshots/nfl/players/full/${playerId}.png`;
+  const url =
+    headshotURL ??
+    (typeof playerId === "number"
+      ? `https://a.espncdn.com/i/headshots/nfl/players/full/${playerId}.png`
+      : undefined);
 
-  if (error || !playerId) {
+  if (error || !url) {
     return (
       <div className={cn("flex items-center justify-center border border-white/5 bg-white/5", className)}>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-3 text-white/20">

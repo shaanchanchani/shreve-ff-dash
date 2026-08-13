@@ -2,6 +2,7 @@ import { Client } from "espn-fantasy-football-api/node";
 import type {
   HistoricalMatchup,
   HistoricalMatchupTeam,
+  HistoricalPlayer,
   LeagueHistoryResponse,
   OwnerSummary,
   SeasonDescriptor,
@@ -145,7 +146,6 @@ const determineCurrentSeason = () => {
   const override = Number.parseInt(
     process.env.NEXT_PUBLIC_CURRENT_SEASON ?? "",
     10,
-    141,
   );
   if (!Number.isNaN(override) && override > 0) {
     return override;
@@ -424,7 +424,8 @@ const buildMatchupTeam = (
     roster.forEach((player) => {
       if (player.wasDraftedByTeam) return; // Already drafted globally
 
-      const claimedByTeamId = waiverClaims.get(player.id);
+      const claimedByTeamId =
+        typeof player.id === "number" ? waiverClaims.get(player.id) : undefined;
       if (claimedByTeamId && claimedByTeamId !== meta.teamId) {
          // Claimed by someone else (and not dropped in between).
          // Ineligible for points.
@@ -488,7 +489,7 @@ const normalizePosition = (raw: string | undefined | null) => {
 const convertRoster = (
   entries: ClientRosterEntry[] | undefined,
   allDraftedPlayerIds?: Set<number>,
-) => {
+): HistoricalPlayer[] => {
   if (!Array.isArray(entries)) {
     return [];
   }

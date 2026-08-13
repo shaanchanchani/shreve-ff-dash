@@ -46,7 +46,7 @@ export default function Home() {
     error,
     isLoadingPrize,
     isLoadingLongest,
-  } = usePrizeDashboard();
+  } = usePrizeDashboard({ includeLongest: true });
 
   const overviewContent = useMemo(() => {
     if (isLoadingPrize || !prizeData) {

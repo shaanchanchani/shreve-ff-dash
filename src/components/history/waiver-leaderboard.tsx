@@ -1,10 +1,12 @@
 "use client";
 
+import Image from "next/image";
 import { TeamLogo } from "@/components/common/team-logo";
 
 export type WaiverPlayerSeason = {
-  playerId: number;
+  playerId: string | number;
   playerName: string;
+  headshotURL?: string;
   seasonId: number;
   points: number;
   weeksStarted: number;
@@ -34,8 +36,14 @@ const formatPlayerName = (name: string) => {
   return `${first[0]}. ${last}`;
 };
 
-const getHeadshotURL = (playerId: number) => 
-  `https://a.espncdn.com/i/headshots/nfl/players/full/${playerId}.png`;
+const getHeadshotURL = (
+  playerId: string | number,
+  headshotURL?: string,
+) =>
+  headshotURL ??
+  (typeof playerId === "number"
+    ? `https://a.espncdn.com/i/headshots/nfl/players/full/${playerId}.png`
+    : undefined);
 
 export function WaiverLeaderboard({ owners }: Props) {
   const sorted = [...owners]
@@ -101,6 +109,10 @@ export function WaiverLeaderboard({ owners }: Props) {
               <div className="flex gap-2 px-10">
                 {row.topWaiverPlayers.map((player) => {
                   const ppg = player.weeksStarted > 0 ? player.points / player.weeksStarted : 0;
+                  const headshotURL = getHeadshotURL(
+                    player.playerId,
+                    player.headshotURL,
+                  );
                   return (
                     <div 
                       key={`${player.playerId}-${player.seasonId}`}
@@ -108,15 +120,19 @@ export function WaiverLeaderboard({ owners }: Props) {
                     >
                       <div className="flex items-center gap-2">
                         <div className="relative size-7 shrink-0 overflow-hidden rounded-full bg-white/10">
-                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                           <img 
-                              src={getHeadshotURL(player.playerId)} 
-                              alt={player.playerName}
-                              className="size-full object-cover"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).style.display = 'none';
-                              }} 
-                           />
+                           {headshotURL ? (
+                             <Image
+                                src={headshotURL}
+                                alt={player.playerName}
+                                width={28}
+                                height={28}
+                                unoptimized
+                                className="size-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = "none";
+                                }}
+                             />
+                           ) : null}
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-[0.55rem] font-bold leading-tight text-white/90" title={player.playerName}>

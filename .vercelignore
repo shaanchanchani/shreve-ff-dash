@@ -1,0 +1,8 @@
+# Longest-TD results are refreshed into Convex by a background action.
+# The legacy Python endpoint is retained in git as a rollback/reference path,
+# but it is not part of the Next.js deployment.
+api/longest-tds.py
+main.py
+pyproject.toml
+requirements.txt
+uv.lock

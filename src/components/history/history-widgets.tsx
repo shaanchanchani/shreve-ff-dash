@@ -11,7 +11,7 @@ import {
   WaiverLeaderboard,
   type WaiverOwnerRow,
 } from "@/components/history/waiver-leaderboard";
-import type { HistoricalMatchup, OwnerSummary } from "@/types/history";
+import type { HistoricalMatchup } from "@/types/history";
 import { cn } from "@/lib/utils";
 import {
   aggregateOwners,
@@ -347,8 +347,9 @@ const buildWaiverRows = (
       waiverPlayers: Map<
         string,
         {
-          playerId: number;
+          playerId: string | number;
           playerName: string;
+          headshotURL?: string;
           seasonId: number;
           points: number;
           weeksStarted: number;
@@ -414,6 +415,9 @@ const buildWaiverRows = (
           home.waiverPlayers.set(key, {
             playerId: player.id,
             playerName: player.name,
+            ...(player.headshotURL
+              ? { headshotURL: player.headshotURL }
+              : {}),
             seasonId: matchup.seasonId,
             points: 0,
             weeksStarted: 0,
@@ -447,6 +451,9 @@ const buildWaiverRows = (
           away.waiverPlayers.set(key, {
             playerId: player.id,
             playerName: player.name,
+            ...(player.headshotURL
+              ? { headshotURL: player.headshotURL }
+              : {}),
             seasonId: matchup.seasonId,
             points: 0,
             weeksStarted: 0,
