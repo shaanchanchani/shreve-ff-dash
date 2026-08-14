@@ -1,9 +1,13 @@
 import { query } from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
 
-export const all = query({
-  args: {},
-  handler: async (ctx) => {
-    const snapshots = await ctx.db.query("historySeasonSnapshots").collect();
+/**
+ * One aggregation, two read models. `all` carries rosters (needed only for
+ * waiver analysis); `summary` strips them, which is the difference between a
+ * 2.3MB and a ~100KB read for the pages that just draw tables.
+ */
+const buildHistory = (snapshots: Doc<"historySeasonSnapshots">[]) => {
+  {
     if (snapshots.length === 0) return null;
     const payloads = snapshots
       .map((snapshot) => snapshot.payload)
@@ -106,6 +110,42 @@ export const all = query({
         "ESPN remains the historical provider for 2022–2025.",
         `Detected seasons: ${seasons.map((season) => season.seasonId).join(", ")}`,
       ],
+    };
+  }
+};
+
+export const all = query({
+  args: {},
+  handler: async (ctx) =>
+    buildHistory(await ctx.db.query("historySeasonSnapshots").collect()),
+});
+
+/**
+ * Everything the archive needs except roster detail: volumes, the all-time
+ * ledger, the record book and head-to-head all work from scores alone.
+ */
+export const summary = query({
+  args: {},
+  handler: async (ctx) => {
+    const history = buildHistory(
+      await ctx.db.query("historySeasonSnapshots").collect(),
+    );
+    if (!history) return null;
+    const stripRoster = (team: (typeof history.matchups)[number]["home"]) => {
+      const { roster, ...rest } = team;
+      void roster;
+      return { ...rest, rosterUnavailable: true };
+    };
+    return {
+      owners: history.owners,
+      seasons: history.seasons,
+      generatedAt: history.generatedAt,
+      notes: history.notes,
+      matchups: history.matchups.map((matchup) => ({
+        ...matchup,
+        home: stripRoster(matchup.home),
+        away: stripRoster(matchup.away),
+      })),
     };
   },
 });

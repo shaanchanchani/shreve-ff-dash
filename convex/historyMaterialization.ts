@@ -166,7 +166,14 @@ export const season = internalMutation({
     }
     let lastWeekRosters = new Map<Id<"players">, Id<"seasonEntries">>();
     const historicalMatchups: Array<Record<string, unknown>> = [];
-    const sortedWeeks = [...weeks].sort((left, right) => left.number - right.number);
+    /**
+     * Only finished weeks belong in history. Including scheduled and live weeks
+     * put 0-0 rows in the snapshot, which every consumer then counted as a tie
+     * for both teams and which could crown an unplayed final's away team.
+     */
+    const sortedWeeks = [...weeks]
+      .filter((week) => week.state === "final")
+      .sort((left, right) => left.number - right.number);
 
     for (const week of sortedWeeks) {
       const weekMatchups = matchups.filter((matchup) => matchup.weekId === week._id);
@@ -281,6 +288,7 @@ export const season = internalMutation({
           id: `${args.seasonYear}-${week.number}-${home.teamId}-${away.teamId}`,
           seasonId: args.seasonYear,
           week: week.number,
+          phase: week.phase,
           label: `Week ${week.number}`,
           home,
           away,
