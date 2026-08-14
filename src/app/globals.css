@@ -1,59 +1,137 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --card-surface: linear-gradient(
-    135deg,
-    rgba(124, 124, 138, 0.25),
-    rgba(20, 20, 30, 0.92)
-  );
+/* ==========================================================================
+   Design tokens.
+   Paper and ink, flat modules, hairline rules. Every colour is contrast-checked
+   against the surface it sits on: the *-ink variants are the text-safe versions
+   of the saturated colours.
+   ========================================================================== */
+
+@theme {
+  /* Surfaces */
+  --color-paper: #f1f0e9;
+  --color-paper-2: #e8e6dc;
+  --color-paper-3: #dcd9cb;
+
+  /* Ink */
+  --color-ink: #090909;
+  --color-ink-2: #5a5852; /* muted body — 6.2:1 on paper */
+  --color-ink-3: #6e6c66; /* metadata — 4.6:1 on paper; not for paper-2 */
+  --color-rule: #c9c6b8;
+  --color-rule-2: #ded9c9;
+
+  /* Signal blue — interaction and projection */
+  --color-signal: #087a9d;
+  --color-signal-ink: #05607d; /* 6.2:1 on paper */
+  --color-mist: #a9cde0;
+
+  /* Money. On paper gold is a rule, never text — it cannot carry contrast. */
+  --color-gold: #d3a72c;
+
+  /* Semantics */
+  --color-positive: #2c9b68;
+  --color-positive-ink: #1c6f4a; /* 5.4:1 on paper */
+  --color-danger: #c3433f;
+  --color-danger-ink: #a5322f; /* 5.9:1 on paper */
+
+  /* Type */
+  --font-display: var(--font-anton), "Arial Narrow", "Helvetica Neue", sans-serif;
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+  --font-meta: var(--font-courier-prime), "Courier New", monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    --card-surface: linear-gradient(
-      135deg,
-      rgba(124, 124, 138, 0.3),
-      rgba(12, 12, 20, 0.9)
-    );
+    color-scheme: light;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.55;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: var(--color-signal);
+    color: var(--color-paper);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-signal-ink);
+    outline-offset: 2px;
+  }
+
+  /* Numerals are the product. Never let them reflow while they tick. */
+  table {
+    font-variant-numeric: tabular-nums;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  /* --- Typographic roles ------------------------------------------------ */
+
+  .display {
+    font-family: var(--font-display);
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: -0.025em;
+    line-height: 0.82;
+  }
+
+  .meta {
+    font-family: var(--font-meta);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 0.625rem;
+    line-height: 1.4;
+  }
+
+  .num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+
+  /* --- Document modules -------------------------------------------------- */
+
+  .module {
+    border: 1px solid var(--color-ink);
+    background: var(--color-paper);
+  }
+
+  /* A table cell whose content must actually truncate. Auto table layout sizes
+     columns to nowrap content, so `truncate` alone does nothing without this. */
+  .cell-tight {
+    max-width: 0;
+  }
+
+  .module-featured {
+    border-width: 2px;
+  }
+
 }
 
-.card-surface {
-  background: var(--card-surface);
-  backdrop-filter: blur(8px);
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
-.font-heading {
-  font-family: var(--font-heading), "JetBrains Mono", monospace;
-}
-
-.font-data {
-  font-family: var(--font-jetbrains-mono), "JetBrains Mono", monospace;
-}
-
-.font-sports {
-  font-family: var(--font-sports), "VT323", monospace;
-  font-weight: 400;
-}
-
-.font-field {
-  font-family: var(--font-field), "Black Ops One", sans-serif;
-  font-weight: 400;
+/* Thin scrollbars inside dense modules. */
+.scroll-rail {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-rule) transparent;
 }

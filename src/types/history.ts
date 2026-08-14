@@ -16,7 +16,8 @@ export type HistoricalMatchupTeam = {
   teamName: string;
   logoURL?: string;
   score: number;
-  roster: HistoricalPlayer[];
+  /** Absent on the summary read model, which strips lineups. */
+  roster?: HistoricalPlayer[];
   rosterUnavailable: boolean;
   waiverPoints: number;
 };
@@ -25,6 +26,8 @@ export type HistoricalMatchup = {
   id: string;
   seasonId: number;
   week: number;
+  /** Canonical week phase. Absent on snapshots built before it was recorded. */
+  phase?: "regular" | "playoffs" | "consolation";
   label: string;
   home: HistoricalMatchupTeam;
   away: HistoricalMatchupTeam;

@@ -1,111 +1,188 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  type TouchEvent,
-} from "react";
 import { usePrizeDashboard } from "@/hooks/use-prize-dashboard";
-import { WeeklyWinnersBreakdownContent } from "@/components/cards/weekly-winners-card";
-import { WeeklyBreakdownSkeleton } from "@/components/cards/skeletons";
-import { basePalette, fontVariableClasses } from "@/lib/theme";
+import { Masthead } from "@/components/shell/masthead";
+import { Module } from "@/components/ui/module";
+import { Tag } from "@/components/ui/tag";
+import { Notice } from "@/components/ui/notice";
 import {
-  DASHBOARD_RETURN_CARD_STORAGE_KEY,
-  WEEKLY_CARD_ID,
-} from "@/lib/dashboard-navigation";
+  WeeklyLogTable,
+  WeeklyWinnersRoll,
+} from "@/components/dashboard/weekly-log";
+import {
+  MastheadSkeleton,
+  ModuleSkeleton,
+} from "@/components/dashboard/skeletons";
+import { WEEKLY_PAYOUT } from "@/lib/prize-calculations";
+import { scoredWeeks, weeklyWinCounts } from "@/lib/payout-model";
+import { seasonRules } from "@/lib/standings";
+import { CURRENT_SEASON } from "@/lib/season";
+import type { WeeklyWinner } from "@/types/prizes";
 
-const SWIPE_START_BOUNDARY = 60;
-const SWIPE_DISTANCE_THRESHOLD = 80;
-const SWIPE_VERTICAL_TOLERANCE = 80;
-
-export default function WeeklyBreakdownPage() {
-  const router = useRouter();
+export default function WeeklyFieldReportPage() {
   const { prizeData, error, isLoadingPrize } = usePrizeDashboard();
-  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.sessionStorage.setItem(
-      DASHBOARD_RETURN_CARD_STORAGE_KEY,
-      WEEKLY_CARD_ID,
-    );
-  }, []);
-
-  const handleBack = useCallback(() => {
-    router.back();
-  }, [router]);
-
-  const handleTouchStart = (event: TouchEvent<HTMLElement>) => {
-    if (event.touches.length !== 1) return;
-    const touch = event.touches[0];
-    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
-  };
-
-  const handleTouchEnd = (event: TouchEvent<HTMLElement>) => {
-    if (!touchStartRef.current) return;
-    const touch = event.changedTouches[0];
-    const deltaX = touch.clientX - touchStartRef.current.x;
-    const deltaY = touch.clientY - touchStartRef.current.y;
-    const startedNearEdge = touchStartRef.current.x <= SWIPE_START_BOUNDARY;
-    touchStartRef.current = null;
-
-    if (
-      startedNearEdge &&
-      deltaX > SWIPE_DISTANCE_THRESHOLD &&
-      Math.abs(deltaY) < SWIPE_VERTICAL_TOLERANCE
-    ) {
-      handleBack();
-    }
-  };
-
-  const cardContent = useMemo(() => {
-    if (error) {
-      return (
-        <div className="rounded-2xl border border-red-400/40 bg-red-900/30 px-4 py-3 text-sm text-red-50">
-          {error}
-        </div>
-      );
-    }
-
-    if (isLoadingPrize || !prizeData) {
-      return <WeeklyBreakdownSkeleton />;
-    }
-
+  if (error) {
     return (
-      <section className="space-y-4">
-        <p className="text-sm uppercase text-white/60">Weekly Winners ($10)</p>
-        <WeeklyWinnersBreakdownContent prizeData={prizeData} />
-      </section>
+      <>
+        <Masthead
+          eyebrow={`${CURRENT_SEASON} season`}
+          title="Weekly Winners"
+          standfirst="This season's data could not be loaded."
+        />
+        <Notice kind="alert" title="No data for this season yet">
+          {error}
+        </Notice>
+      </>
     );
-  }, [error, isLoadingPrize, prizeData]);
+  }
+
+  if (isLoadingPrize || !prizeData) {
+    return (
+      <>
+        <MastheadSkeleton />
+        <div className="grid gap-4 lg:grid-cols-12 lg:gap-5">
+          <ModuleSkeleton
+            title="Every week"
+            rows={8}
+            className="lg:col-span-7"
+          />
+          <ModuleSkeleton
+            title="Wins by team"
+            rows={6}
+            className="lg:col-span-5"
+          />
+        </div>
+      </>
+    );
+  }
+
+  const winners = [...scoredWeeks(prizeData)].sort((a, b) => b.week - a.week);
+  const counts = weeklyWinCounts(prizeData);
+  const scheduled = seasonRules(prizeData).regularSeasonWeeks;
+  const best = winners.reduce<WeeklyWinner | null>(
+    (top, winner) => (!top || winner.score > top.score ? winner : top),
+    null,
+  );
 
   return (
-    <div className={fontVariableClasses}>
-      <main
-        style={basePalette}
-        className="relative min-h-screen overflow-hidden bg-black text-[var(--mist)]"
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-      >
+    <>
+      <Masthead
+        eyebrow={`${CURRENT_SEASON} season`}
+        status={
+          <Tag variant={winners.length >= scheduled ? "settled" : "open"}>
+            {winners.length >= scheduled ? "Complete" : "In progress"}
+          </Tag>
+        }
+        title="Weekly Winners"
+        standfirst={`$${WEEKLY_PAYOUT} to the highest single-week output, one award per regular-season week.`}
+        facts={[
+          {
+            label: "Weeks",
+            value: `${winners.length}/${scheduled}`,
+          },
+          { label: "Winners", value: counts.length },
+          { label: "Paid", value: `$${winners.length * WEEKLY_PAYOUT}` },
+          {
+            label: "Best week",
+            value: best ? best.score.toFixed(1) : "—",
+            hint: best ? `Week ${best.week}` : undefined,
+          },
+        ]}
+      />
 
-        <button
-          type="button"
-          onClick={handleBack}
-          className="group fixed left-4 top-4 z-20 inline-flex items-center justify-center rounded-full border border-white/20 bg-black/40 p-2 text-white/80 backdrop-blur transition hover:border-white/40 hover:text-white"
-          aria-label="Back to dashboard"
+      <div className="grid gap-4 lg:grid-cols-12 lg:gap-5">
+        <Module
+          title="Every week"
+          qualifier={`$${WEEKLY_PAYOUT} / week`}
+          featured
+          className="lg:col-span-7"
+          status={
+            <Tag variant={winners.length >= scheduled ? "settled" : "open"}>
+              {winners.length >= scheduled ? "Complete" : "In progress"}
+            </Tag>
+          }
+          note="Newest week first."
         >
-          <span aria-hidden="true" className="text-lg">
-            ←
-          </span>
-        </button>
+          <WeeklyLogTable winners={winners} />
+        </Module>
 
-        <div className="relative z-10 mx-auto flex w-full max-w-3xl flex-col gap-10 px-5 pb-20 pt-16">
-          {cardContent}
+        <WeeklyWinnersRoll
+          prizeData={prizeData}
+          className="lg:col-span-5"
+        />
+
+        <OutputCurve winners={winners} className="lg:col-span-12" />
+      </div>
+    </>
+  );
+}
+
+/** The winning output for every week, plotted as a bar chart. */
+function OutputCurve({
+  winners,
+  className,
+}: {
+  winners: WeeklyWinner[];
+  className?: string;
+}) {
+  const ordered = [...winners].sort((a, b) => a.week - b.week);
+  if (ordered.length === 0) return null;
+
+  const scores = ordered.map((winner) => winner.score);
+  const max = Math.max(...scores);
+  const min = Math.min(...scores);
+  const mean = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+  const floor = Math.max(0, min - 15);
+
+  return (
+    <Module
+      title="Winning score by week"
+      qualifier="Points"
+      className={className}
+      note={`${min.toFixed(1)} to ${max.toFixed(1)} points, averaging ${mean.toFixed(1)}. Bars start at ${floor.toFixed(0)} so the differences read.`}
+    >
+      <div className="px-3 py-4">
+        <div
+          aria-hidden="true"
+          className="flex h-40 items-end gap-1 border-b border-ink sm:gap-2"
+        >
+          {ordered.map((winner) => {
+            const height =
+              ((winner.score - floor) / Math.max(1, max - floor)) * 100;
+            const isMax = winner.score === max;
+            return (
+              <div
+                key={winner.week}
+                className="flex flex-1 flex-col justify-end"
+                style={{ height: "100%" }}
+              >
+                <span
+                  className={`block w-full ${isMax ? "bg-ink" : "bg-mist"}`}
+                  style={{ height: `${Math.max(4, height)}%` }}
+                />
+              </div>
+            );
+          })}
         </div>
-      </main>
-    </div>
+        <div aria-hidden="true" className="mt-1 flex gap-1 sm:gap-2">
+          {ordered.map((winner) => (
+            <span
+              key={winner.week}
+              className="num flex-1 text-center text-[0.5625rem] text-ink-3"
+            >
+              {winner.week}
+            </span>
+          ))}
+        </div>
+        <p className="sr-only">
+          Winning score by week:{" "}
+          {ordered
+            .map((winner) => `week ${winner.week}, ${winner.score.toFixed(1)}`)
+            .join("; ")}
+          .
+        </p>
+      </div>
+    </Module>
   );
 }
