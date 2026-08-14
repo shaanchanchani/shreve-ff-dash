@@ -1,162 +1,208 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { usePrizeDashboard } from "@/hooks/use-prize-dashboard";
-import { PayoutPictureCard } from "@/components/cards/payout-picture-card";
+import { Masthead } from "@/components/shell/masthead";
+import { Notice } from "@/components/ui/notice";
+import { Tag } from "@/components/ui/tag";
+import { PayoutIndex } from "@/components/dashboard/payout-index";
+import { ChampionshipModule } from "@/components/dashboard/championship-module";
+import { WeeklyLogModule } from "@/components/dashboard/weekly-log";
 import {
-  LongestTDCandidatesCard,
-  SeasonHighScoreCard,
-  UnluckyCandidatesCard,
-} from "@/components/cards/league-stats-card";
-import { WeeklyWinnersSummarySection } from "@/components/cards/weekly-winners-card";
-import { SurvivorSummarySection } from "@/components/cards/survivor-pool-card";
+  LongestRecordModule,
+  LongestRecordPlaceholder,
+  SeasonHighModule,
+  UnluckyModule,
+} from "@/components/dashboard/records";
+import { SurvivorModule } from "@/components/dashboard/survivor";
 import {
-  LeagueCardSkeleton,
-  PayoutCardSkeleton,
-  WeeklySurvivorSkeleton,
-} from "@/components/cards/skeletons";
-import { basePalette, fontVariableClasses } from "@/lib/theme";
+  MastheadSkeleton,
+  ModuleSkeleton,
+} from "@/components/dashboard/skeletons";
 import {
-  DASHBOARD_RETURN_CARD_STORAGE_KEY,
-  SURVIVOR_CARD_ID,
-  WEEKLY_CARD_ID,
-} from "@/lib/dashboard-navigation";
+  LONGEST_KEYS,
+  buildPayoutLedger,
+  longestAmountFor,
+  regularSeasonComplete,
+} from "@/lib/payout-model";
+import { CURRENT_SEASON } from "@/lib/season";
+import { seasonRules } from "@/lib/standings";
+import { useSystemStatus } from "@/hooks/use-system-status";
+import { useChampion } from "@/hooks/use-champion";
 
-const DASHBOARD_TABS = [
-  { id: "overview", label: "Payout Picture" },
-  { id: "prizes", label: "Prize Detail" },
-] as const;
-
-type DashboardTabId = (typeof DASHBOARD_TABS)[number]["id"];
-
-const CARD_TO_TAB: Record<string, DashboardTabId> = {
-  payouts: "overview",
-  league: "prizes",
+const LONGEST_TITLE: Record<string, string> = {
+  longest_started_rushing_td: "Longest rushing TD",
+  longest_started_receiving_td: "Longest receiving TD",
+  longest_started_passing_td: "Longest passing TD",
 };
 
-CARD_TO_TAB[SURVIVOR_CARD_ID] = "prizes";
-CARD_TO_TAB[WEEKLY_CARD_ID] = "prizes";
-
-export default function Home() {
-  const [activeTab, setActiveTab] = useState<DashboardTabId>("overview");
+export default function PayoutIndexPage() {
   const {
     prizeData,
-    teamSummaries,
     longestCards,
     error,
     isLoadingPrize,
     isLoadingLongest,
   } = usePrizeDashboard({ includeLongest: true });
+  const { nextSeasonOnFile } = useSystemStatus();
+  const { result: championResult, pending: championPending } =
+    useChampion(prizeData);
+  const nextSeasonMissing = nextSeasonOnFile === false;
 
-  const overviewContent = useMemo(() => {
-    if (isLoadingPrize || !prizeData) {
-      return (
-        <div className="space-y-10">
-          <PayoutCardSkeleton />
-        </div>
-      );
-    }
+  const ledger = useMemo(
+    () =>
+      prizeData
+        ? buildPayoutLedger({
+            prizeData,
+            longestCards,
+            champion: championResult?.champion.teamName ?? null,
+            pending: {
+              longest: isLoadingLongest,
+              champion: championPending,
+            },
+          })
+        : null,
+    [prizeData, longestCards, championResult, isLoadingLongest, championPending],
+  );
 
+  if (error) {
     return (
-      <div className="space-y-10">
-        <PayoutPictureCard
-          prizeData={prizeData}
-          teamSummaries={teamSummaries}
+      <>
+        <Masthead
+          eyebrow={`${CURRENT_SEASON} season`}
+          title="Prizes"
+          standfirst="This season's data could not be loaded."
         />
-      </div>
+        <Notice kind="alert" title="No data for this season yet">
+          {error} The page updates on its own as soon as the season is built —
+          no reload needed.
+        </Notice>
+      </>
     );
-  }, [isLoadingPrize, prizeData, teamSummaries]);
+  }
 
-  const prizeDetailContent = useMemo(() => {
-    if (isLoadingPrize || !prizeData) {
-      return (
-        <div className="space-y-10">
-          <LeagueCardSkeleton />
-          <WeeklySurvivorSkeleton />
-        </div>
-      );
-    }
-
+  if (isLoadingPrize || !prizeData) {
     return (
-      <div className="flex flex-col gap-6">
-        <div className="grid grid-cols-2 gap-4 max-[360px]:grid-cols-1">
-          <SeasonHighScoreCard prizeData={prizeData} className="h-full" />
-          <SurvivorSummarySection prizeData={prizeData} className="h-full" />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 max-[360px]:grid-cols-1">
-          <UnluckyCandidatesCard prizeData={prizeData} className="h-full" />
-          <LongestTDCandidatesCard
-            prizeData={prizeData}
-            longestCards={longestCards}
-            isLoadingLongest={isLoadingLongest}
-            className="h-full"
+      <>
+        <MastheadSkeleton />
+        <div className="grid gap-4 lg:grid-cols-12 lg:gap-5">
+          <ModuleSkeleton
+            title="Payout picture"
+            rows={8}
+            className="lg:col-span-8"
+          />
+          <ModuleSkeleton
+            title="Season high"
+            rows={5}
+            className="lg:col-span-4"
+          />
+          <ModuleSkeleton
+            title="Championship"
+            rows={4}
+            className="lg:col-span-12"
+          />
+          <ModuleSkeleton
+            title="Weekly top scores"
+            rows={6}
+            className="lg:col-span-8"
           />
         </div>
-        
-        <div className="mx-auto w-full max-w-sm">
-          <WeeklyWinnersSummarySection prizeData={prizeData} />
-        </div>
-      </div>
+      </>
     );
-  }, [isLoadingLongest, isLoadingPrize, longestCards, prizeData]);
+  }
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const targetCardId = window.sessionStorage.getItem(
-      DASHBOARD_RETURN_CARD_STORAGE_KEY,
-    );
-    if (!targetCardId) return;
-
-    const tab = CARD_TO_TAB[targetCardId];
-    if (tab) {
-      setActiveTab(tab);
-    }
-
-    window.sessionStorage.removeItem(DASHBOARD_RETURN_CARD_STORAGE_KEY);
-  }, []);
-
-  const tabContent =
-    activeTab === "overview" ? overviewContent : prizeDetailContent;
+  const complete = regularSeasonComplete(prizeData);
+  const scheduledWeeks = seasonRules(prizeData).regularSeasonWeeks;
 
   return (
-    <div className={fontVariableClasses}>
-      <main
-        style={basePalette}
-        className="relative min-h-screen overflow-x-hidden bg-black text-[var(--mist)]"
-      >
+    <>
+      <Masthead
+        eyebrow={
+          complete
+            ? `${CURRENT_SEASON} season`
+            : `${CURRENT_SEASON} season · week ${prizeData.weeklyHighScores.length} of ${scheduledWeeks}`
+        }
+        status={
+          <Tag variant={complete ? "settled" : "open"}>
+            {complete ? "Complete" : "In progress"}
+          </Tag>
+        }
+        title="Prizes"
+        standfirst={
+          nextSeasonMissing
+            ? `Who has won money and who can still win the most. ${CURRENT_SEASON + 1} hasn’t started yet, so this is the most recent season.`
+            : "Who has won money and who can still win the most."
+        }
+        facts={[
+          { label: "Teams", value: prizeData.standings.length },
+          {
+            label: "Weeks",
+            value: `${prizeData.weeklyHighScores.length}/${scheduledWeeks}`,
+            hint: complete ? "complete" : "in progress",
+          },
+          {
+            label: "Prize money",
+            value: ledger && !ledger.pending ? `$${ledger.totalDecided}` : "—",
+            hint: ledger ? `of $${ledger.totalDefined} awarded` : undefined,
+          },
+        ]}
+      />
 
-        <div className="relative z-10 mx-auto flex w-full max-w-3xl flex-col gap-4 px-5 pb-20 pt-4">
-          {error && (
-            <div className="rounded-2xl border border-red-400/40 bg-red-900/30 px-4 py-3 text-sm text-red-50">
-              {error}
-            </div>
-          )}
-
-          <div className="mx-auto w-full max-w-sm">
-            <div className="inline-flex w-full gap-1 rounded-full border border-white/15 bg-black/30 p-1 text-xs uppercase tracking-wide">
-              {DASHBOARD_TABS.map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 rounded-full px-4 py-2 font-heading transition ${
-                    activeTab === tab.id
-                      ? "bg-[var(--mist)] text-black shadow"
-                      : "text-white/70 hover:text-white"
-                  }`}
-                  aria-pressed={activeTab === tab.id}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {tabContent}
+      <div className="grid gap-4 lg:grid-cols-12 lg:gap-5">
+        {ledger ? (
+          <PayoutIndex
+            prizeData={prizeData}
+            ledger={ledger}
+            className="lg:col-span-8"
+          />
+        ) : null}
+        <div className="flex min-w-0 flex-col gap-4 lg:col-span-4 lg:gap-5">
+          <SeasonHighModule prizeData={prizeData} />
+          <UnluckyModule prizeData={prizeData} />
         </div>
-      </main>
-    </div>
+
+        <ChampionshipModule
+          prizeData={prizeData}
+          result={championResult}
+          className="lg:col-span-12"
+        />
+
+        <WeeklyLogModule
+          prizeData={prizeData}
+          limit={10}
+          className="lg:col-span-8"
+        />
+
+        <div className="flex min-w-0 flex-col gap-4 lg:col-span-4 lg:gap-5">
+          {LONGEST_KEYS.map((key) => {
+            const card = longestCards.find((entry) => entry.key === key);
+            if (!card) {
+              return (
+                <LongestRecordPlaceholder
+                  key={key}
+                  title={LONGEST_TITLE[key] ?? "Longest TD"}
+                  amount={longestAmountFor(key)}
+                  state={isLoadingLongest ? "loading" : "unavailable"}
+                />
+              );
+            }
+            return (
+              <LongestRecordModule
+                key={key}
+                card={card}
+                prizeData={prizeData}
+                amount={longestAmountFor(key)}
+                settled={Boolean(championResult)}
+              />
+            );
+          })}
+        </div>
+
+        <SurvivorModule
+          prizeData={prizeData}
+          className="lg:col-span-12"
+        />
+      </div>
+    </>
   );
 }
