@@ -82,9 +82,13 @@ export const useRelativeAge = (timestamp: number | null) => {
   const [now, setNow] = useState<number | null>(null);
 
   useEffect(() => {
-    setNow(Date.now());
-    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
-    return () => window.clearInterval(timer);
+    const updateNow = () => setNow(Date.now());
+    const initialTimer = window.setTimeout(updateNow, 0);
+    const refreshTimer = window.setInterval(updateNow, 30_000);
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.clearInterval(refreshTimer);
+    };
   }, []);
 
   if (!timestamp || now === null) return null;
