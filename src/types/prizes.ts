@@ -71,7 +71,36 @@ export interface LeagueMedianStat {
   percentage: number;
 }
 
+export interface PlayoffEntryRef {
+  seasonEntryId?: string;
+  memberId?: string;
+  teamName: string;
+  logoURL?: string;
+}
+
+export interface PlayoffResult {
+  champion: PlayoffEntryRef | null;
+  runnerUp: PlayoffEntryRef | null;
+  finalWeek: number;
+  championScore: number;
+  runnerUpScore: number;
+  byeTeamNames?: string[];
+  thirdPlace?: PlayoffEntryRef | null;
+}
+
+export interface LiveWeek {
+  number: number;
+  topScore: { teamName: string; score: number; logoURL?: string } | null;
+}
+
 export interface PrizeData {
+  /** Regular-season weeks the provider marks final. Absent on older snapshots. */
+  completedWeeks?: number;
+  /** False when week state was missing and the legacy week filter was used. */
+  weekStatesTrustworthy?: boolean;
+  seasonStatus?: "planned" | "preseason" | "active" | "complete";
+  liveWeek?: LiveWeek | null;
+  playoffResult?: PlayoffResult | null;
   rules?: {
     regularSeasonWeeks: number;
     playoffTeamCount: number;

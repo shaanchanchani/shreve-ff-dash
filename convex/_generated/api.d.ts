@@ -19,6 +19,7 @@ import type * as identityManagement from "../identityManagement.js";
 import type * as ingestion from "../ingestion.js";
 import type * as materialization from "../materialization.js";
 import type * as model from "../model.js";
+import type * as playoffBracket from "../playoffBracket.js";
 import type * as providers_espn from "../providers/espn.js";
 import type * as providers_longestTouchdowns from "../providers/longestTouchdowns.js";
 import type * as providers_sleeper from "../providers/sleeper.js";
@@ -47,6 +48,7 @@ declare const fullApi: ApiFromModules<{
   ingestion: typeof ingestion;
   materialization: typeof materialization;
   model: typeof model;
+  playoffBracket: typeof playoffBracket;
   "providers/espn": typeof providers_espn;
   "providers/longestTouchdowns": typeof providers_longestTouchdowns;
   "providers/sleeper": typeof providers_sleeper;

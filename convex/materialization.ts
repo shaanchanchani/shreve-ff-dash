@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { resolveBracket } from "./playoffBracket";
 import { internalMutation } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 
@@ -153,11 +154,33 @@ export const dashboard = internalMutation({
     let winsAboveMedian = 0;
     let totalWins = 0;
 
-    const sortedWeeks = weeks
-      .filter(
-        (week) => week.phase === "regular" && week.state !== "scheduled",
-      )
-      .sort((left, right) => left.number - right.number);
+    /**
+     * Only finished weeks settle anything. Including live weeks made every
+     * season-long prize flip to "won" on the first Thursday-night game of the
+     * final week and then churn until Monday.
+     *
+     * Safety valve: if a season has scored weeks but none are marked final —
+     * which would mean week state was never set by an older ingestion — fall
+     * back to the previous behaviour rather than materializing an empty
+     * dashboard over a working one.
+     */
+    const regularWeeks = weeks.filter((week) => week.phase === "regular");
+    const finalRegularWeeks = regularWeeks.filter(
+      (week) => week.state === "final",
+    );
+    const scoredRegularWeeks = regularWeeks.filter(
+      (week) => week.state !== "scheduled",
+    );
+    const weekStatesTrustworthy =
+      finalRegularWeeks.length > 0 || scoredRegularWeeks.length === 0;
+    const sortedWeeks = (
+      weekStatesTrustworthy ? finalRegularWeeks : scoredRegularWeeks
+    ).sort((left, right) => left.number - right.number);
+    const liveRegularWeek = weekStatesTrustworthy
+      ? regularWeeks
+          .filter((week) => week.state === "live")
+          .sort((left, right) => left.number - right.number)[0]
+      : undefined;
     for (const week of sortedWeeks) {
       const weekMatchups = matchups.filter((matchup) => matchup.weekId === week._id);
       const scoredParticipants: ScoredParticipant[] = [];
@@ -288,6 +311,104 @@ export const dashboard = internalMutation({
       clinchedBye: index < currentRules.playoffByeCount,
     }));
 
+    /**
+     * The championship result, read from playoff weeks that have finished. This
+     * lives in the prizes snapshot so the payout page can name the champion from
+     * the small read it already makes, instead of pulling the whole roster
+     * history to answer one question.
+     */
+    const allPlayoffWeeks = weeks.filter((week) => week.phase === "playoffs");
+    const finalPlayoffWeeks = allPlayoffWeeks.filter(
+      (week) => week.state === "final",
+    );
+    const playoffWeeks = (
+      finalPlayoffWeeks.length > 0 || !weekStatesTrustworthy
+        ? finalPlayoffWeeks.length > 0
+          ? finalPlayoffWeeks
+          : allPlayoffWeeks.filter((week) => week.state !== "scheduled")
+        : finalPlayoffWeeks
+    ).sort((left, right) => left.number - right.number);
+    const bracket = resolveBracket({
+      weeks: playoffWeeks.map((week) => ({
+        weekNumber: week.number,
+        games: matchups
+          .filter((matchup) => matchup.weekId === week._id)
+          .flatMap((matchup) => {
+            const pair = participantsByMatchup.get(matchup._id) ?? [];
+            if (pair.length !== 2) return [];
+            return [
+              {
+                home: {
+                  entryId: String(pair[0].seasonEntryId),
+                  score: pair[0].score ?? null,
+                },
+                away: {
+                  entryId: String(pair[1].seasonEntryId),
+                  score: pair[1].score ?? null,
+                },
+              },
+            ];
+          }),
+      })),
+      qualifiedEntryIds: standings
+        .slice(0, currentRules.playoffTeamCount)
+        .map((entry) => String(entry.seasonEntryId)),
+    });
+
+    const describeEntry = (entryId: string) => {
+      const entry = entries.find((candidate) => String(candidate._id) === entryId);
+      if (!entry) return null;
+      return {
+        seasonEntryId: entry._id,
+        memberId: memberByEntryId.get(entry._id),
+        teamName: entry.displayName,
+        ...(entry.avatarUrl ? { logoURL: entry.avatarUrl } : {}),
+      };
+    };
+
+    const playoffResult = bracket
+      ? {
+          champion: describeEntry(bracket.championEntryId),
+          runnerUp: describeEntry(bracket.runnerUpEntryId),
+          finalWeek: bracket.finalWeek,
+          championScore: bracket.championScore,
+          runnerUpScore: bracket.runnerUpScore,
+          byeTeamNames: bracket.byeEntryIds
+            .map((id) => describeEntry(id)?.teamName)
+            .filter((name): name is string => Boolean(name)),
+          ...(bracket.thirdPlaceEntryId
+            ? { thirdPlace: describeEntry(bracket.thirdPlaceEntryId) }
+            : {}),
+        }
+      : null;
+
+    /** The week in progress, so the UI can show a leader without settling it. */
+    const liveWeek = liveRegularWeek
+      ? {
+          number: liveRegularWeek.number,
+          topScore: (() => {
+            const scored = matchups
+              .filter((matchup) => matchup.weekId === liveRegularWeek._id)
+              .flatMap((matchup) => participantsByMatchup.get(matchup._id) ?? [])
+              .flatMap((participant) => {
+                const entry = entryById.get(participant.seasonEntryId);
+                if (!entry) return [];
+                return [{ entry, score: participant.score ?? 0 }];
+              })
+              .filter(({ score }) => score > 0)
+              .sort((left, right) => right.score - left.score)[0];
+            if (!scored) return null;
+            return {
+              teamName: scored.entry.displayName,
+              score: scored.score,
+              ...(scored.entry.avatarUrl
+                ? { logoURL: scored.entry.avatarUrl }
+                : {}),
+            };
+          })(),
+        }
+      : null;
+
     const unluckyTeams = entries
       .map((entry) => ({
         seasonEntryId: entry._id,
@@ -346,6 +467,13 @@ export const dashboard = internalMutation({
 
     const payload = {
       seasonYear: args.seasonYear,
+      /** Regular-season weeks that have finished. The UI settles on this. */
+      completedWeeks: sortedWeeks.length,
+      /** False when week state was missing and the legacy filter was used. */
+      weekStatesTrustworthy,
+      seasonStatus: season.status,
+      liveWeek,
+      playoffResult,
       rules: {
         regularSeasonWeeks: currentRules.regularSeasonWeeks,
         playoffTeamCount: currentRules.playoffTeamCount,
