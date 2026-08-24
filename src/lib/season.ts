@@ -7,4 +7,3 @@ export const CURRENT_SEASON = Number.parseInt(
   process.env.NEXT_PUBLIC_CURRENT_SEASON ?? "2025",
   10,
 );
-
