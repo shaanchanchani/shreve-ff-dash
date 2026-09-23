@@ -47,14 +47,14 @@ export type WaiverImpactResult = {
   inferredStarts: number;
 };
 
-const positionOf = (player: HistoricalPlayer): ImpactPosition | null => {
+export const positionOf = (player: HistoricalPlayer): ImpactPosition | null => {
   const position = player.realPosition;
   if (position === "DEF" || position === "DST" || position === "D/ST") return "D/ST";
   return ["QB", "RB", "WR", "TE"].includes(position ?? "") ? position as ImpactPosition : null;
 };
 const isStarter = (player: HistoricalPlayer) =>
   !["BN", "Bench", "IR"].includes(player.position) && Number.isFinite(player.points);
-const fitsSlot = (bench: HistoricalPlayer, starter: HistoricalPlayer) => {
+export const fitsSlot = (bench: HistoricalPlayer, starter: HistoricalPlayer) => {
   const position = positionOf(bench);
   if (!position) return false;
   switch (starter.position) {

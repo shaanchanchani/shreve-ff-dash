@@ -29,3 +29,21 @@ Only completed canonical history is analyzed. This metric does not change histor
 `tests/waiver-impact.test.ts` covers own-team weekly bench comparisons, negative starts, zero/negative bench scores, exclusions, missing alternatives, FLEX and superflex, joint replacement assignment, stable position filters, no double use of a backup, ambiguous rosters, win swings, seasons, and duplicate games. `tests/waiver-attribution.test.ts` covers acquisition attribution and trade exclusions.
 
 September 23, 2026 validation: all 25 tests in the isolated waiver branch passed, as did lint and the production build including TypeScript. The full working tree passed 52 tests, typecheck, and lint. A read-only canonical history snapshot contained 556 measured offensive starts across 229 pickups, with 64 excluded starts; defense had 151 measured and 179 excluded starts. Independent exhaustive Python assignment reproduced all offensive measured/excluded counts and the +1,013.94 total. LaPorta / Rohan / 2023: 182.8 scored − 104.4 bench points = +78.4 over 13 starts. The production build was checked in the browser, including the named bench alternative in pickup details.
+
+## Bench value: starter potential elsewhere
+
+The separate Bench value view recognizes undrafted pickups who remained on their owner's bench but outscored eligible starters on other teams. It is never added to started impact or win swings.
+
+For every qualifying BN/Bench week, compare the player with each other observed team's lowest-scoring eligible starting slot. Respect fixed, FLEX, restricted flex, superflex, and defense eligibility, using the same slot rules as started impact. Each other team supplies at most one comparison. The owner's own team, other bench players, and IR players are excluded.
+
+`weekly bench value = sum(max(0, bench points − eligible starter points)) / number of comparable other teams`
+
+Include zero-upgrade teams in the denominator. Four upgrades of 10 points among eight comparable teams earn +5 for the week. Sum weekly values by pickup/owner/season. This normalization avoids automatically rewarding larger leagues. Measured weeks with no upgrades remain visible with zero value; per-week values and a complete weekly log distinguish consistent depth from a long bench tenure. The leaderboard shows how many measured bench weeks improved at least one other lineup. Details identify the destination managers, the eligible starters, and individual upgrades in the best week.
+
+These are separate hindsight scenarios, one pickup and one destination team at a time. The score is neither actual production nor a claim that a player was available to, denied to, or would have been started by another manager. It does not award hypothetical game wins. Other actual starters stay put. Positions are filtered by the pickup's real position, but comparison slots always include every eligible slot.
+
+Missing rosters, absent eligible starting slots, nonfinite scores, and duplicate player records are unavailable comparisons, not zero baselines. A bench week without any valid comparison is unmeasured. Partial coverage is disclosed; absent bye teams are not reconstructed. Only canonical undrafted pickup eligibility earns credit, retaining existing transaction evidence and trade exclusions.
+
+Implementation: `src/lib/waiver-bench-model.ts`; regressions: `tests/waiver-bench.test.ts`.
+
+Bench-value validation (September 23, 2026): all 37 waiver tests, lint, and the production build including TypeScript passed. An independent Python calculation matched 1,157 offensive bench weeks across 312 pickups, 5,363 improved lineups out of 13,211 comparisons, and 3,500.6477 cumulative bench-value points. The snapshot had no unavailable offensive comparisons. Browser checks covered both metric modes, named comparisons, the full weekly log, position filtering, pagination, and console errors (none).
