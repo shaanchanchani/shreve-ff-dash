@@ -8,6 +8,7 @@ import { buildWaiverImpact, type ImpactPositionFilter, type PickupImpact } from 
 import type { AggregatedOwner } from "@/lib/owner-utils";
 import type { HistoricalMatchup } from "@/types/history";
 import { cn } from "@/lib/utils";
+import { WaiverBenchValue } from "@/components/history/waiver-bench-value";
 
 const signed = (value: number) => `${value >= 0 ? "+" : "−"}${Math.abs(value).toFixed(1)}`;
 const impactTone = (value: number) => value < -0.05 ? "text-danger-ink" : "text-ink";
@@ -29,17 +30,33 @@ function PickupDetail({ pickup }: { pickup: PickupImpact }) {
   );
 }
 
-export function WaiverImpact({
-  matchups,
-  owners,
-  season,
-  className,
-}: {
+type WaiverImpactProps = {
   matchups: HistoricalMatchup[];
   owners: Map<string, AggregatedOwner>;
   season: number | "all";
   className?: string;
-}) {
+};
+
+export function WaiverImpact({ className, ...props }: WaiverImpactProps) {
+  const [metric,setMetric] = useState<"started" | "bench">("started");
+  return <div className={cn("min-w-0 space-y-3",className)}>
+    <div className="flex border border-rule-2" role="group" aria-label="Waiver value measure">
+      {(["started","bench"] as const).map(option => <button key={option} type="button" aria-pressed={metric === option}
+        onClick={() => setMetric(option)}
+        className={cn("min-h-11 flex-1 px-3 text-sm",metric === option ? "bg-paper-3 font-medium text-ink" : "text-ink-2 hover:bg-paper-2")}>
+        {option === "started" ? "Started impact" : "Bench value"}
+      </button>)}
+    </div>
+    {metric === "started" ? <StartedWaiverImpact {...props}/> : <WaiverBenchValue matchups={props.matchups} owners={props.owners}/>}
+  </div>;
+}
+
+function StartedWaiverImpact({
+  matchups,
+  owners,
+  season,
+  className,
+}: WaiverImpactProps) {
   const [view, setView] = useState<"pickups" | "managers">("pickups");
   const [position, setPosition] = useState<ImpactPositionFilter>("offense");
   const [expanded, setExpanded] = useState<string | null>(null);
