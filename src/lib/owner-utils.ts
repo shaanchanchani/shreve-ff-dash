@@ -1,4 +1,4 @@
-import { OwnerSummary } from "@/types/history";
+import type { OwnerSummary } from "@/types/history";
 
 export const MANUAL_OWNER_GROUPS = [
   {

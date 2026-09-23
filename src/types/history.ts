@@ -6,6 +6,7 @@ export type HistoricalPlayer = {
   wasDraftedByTeam?: boolean;
   realPosition?: string;
   effectiveWaiverPoints?: number;
+  waiverEvidence?: "transaction" | "inferred";
   headshotURL?: string;
 };
 

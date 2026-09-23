@@ -1,8 +1,9 @@
 import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
+import { createWaiverTracker } from "./waiverAttribution";
 
-const CALCULATION_VERSION = 2;
+const CALCULATION_VERSION = 3;
 
 const normalizeRosterSlot = (slot: string) => {
   if (slot === "RB/WR/TE" || slot === "RB/WR") return "FLEX";
@@ -135,36 +136,22 @@ export const season = internalMutation({
       lineupsByParticipant.set(lineup.matchupParticipantId, current);
     }
 
-    const waiverClaims = new Map<Id<"players">, Id<"seasonEntries">>();
-    const qualifyingTransactionTime = new Map(
-      transactions
-        .filter(
-          (transaction) =>
-            transaction.kind === "waiver" ||
-            transaction.kind === "free_agent",
-        )
-        .map((transaction) => [transaction._id, transaction.occurredAt]),
-    );
-    const qualifyingAdds = transactionMovements
-      .filter(
-        (movement) =>
-          movement.direction === "add" &&
-          qualifyingTransactionTime.has(movement.transactionId),
-      )
-      .sort(
-        (left, right) =>
-          qualifyingTransactionTime.get(left.transactionId)! -
-          qualifyingTransactionTime.get(right.transactionId)!,
-      );
-    for (const movement of qualifyingAdds) {
-      if (
-        !draftedPlayerIds.has(movement.playerId) &&
-        !waiverClaims.has(movement.playerId)
-      ) {
-        waiverClaims.set(movement.playerId, movement.seasonEntryId);
-      }
+    const movementsByTransaction = new Map<string, typeof transactionMovements>();
+    for (const movement of transactionMovements) {
+      const grouped = movementsByTransaction.get(movement.transactionId) ?? [];
+      grouped.push(movement);
+      movementsByTransaction.set(movement.transactionId, grouped);
     }
-    let lastWeekRosters = new Map<Id<"players">, Id<"seasonEntries">>();
+    const waiverTracker = createWaiverTracker(draftedPlayerIds, transactions.map(transaction => ({
+      week: transaction.weekNumber,
+      occurredAt: transaction.occurredAt,
+      kind: transaction.kind,
+      movements: (movementsByTransaction.get(transaction._id) ?? []).map(movement => ({
+        playerId: String(movement.playerId),
+        ownerId: String(movement.seasonEntryId),
+        direction: movement.direction,
+      })),
+    })));
     const historicalMatchups: Array<Record<string, unknown>> = [];
     /**
      * Only finished weeks belong in history. Including scheduled and live weeks
@@ -194,20 +181,13 @@ export const season = internalMutation({
             scores.push(lineup.points);
             positionalScores.set(player.position, scores);
           }
-          if (draftedPlayerIds.has(lineup.playerId)) continue;
           currentWeekRosters.set(lineup.playerId, participant.seasonEntryId);
-          if (!waiverClaims.has(lineup.playerId)) {
-            waiverClaims.set(lineup.playerId, participant.seasonEntryId);
-            continue;
-          }
-          const claimedBy = waiverClaims.get(lineup.playerId);
-          const lastOwner = lastWeekRosters.get(lineup.playerId);
-          if (lastOwner && lastOwner !== participant.seasonEntryId) continue;
-          if (!lastOwner && claimedBy !== participant.seasonEntryId) {
-            waiverClaims.set(lineup.playerId, participant.seasonEntryId);
-          }
         }
       }
+
+      const completeRosters = new Set(weekParticipants.map(p => p.seasonEntryId)).size === entries.length &&
+        weekParticipants.every(p => (lineupsByParticipant.get(p._id)?.length ?? 0) > 0);
+      const waiverEligibility = waiverTracker.advance(week.number, currentWeekRosters, completeRosters);
 
       const thresholds = new Map<string, number>();
       for (const [position, values] of positionalScores) {
@@ -231,10 +211,10 @@ export const season = internalMutation({
                 `https://a.espncdn.com/i/headshots/nfl/players/full/${espnPlayerId}.png`,
               );
             }
-            const originallyDrafted = draftedPlayerIds.has(lineup.playerId);
-            const claimedBy = waiverClaims.get(lineup.playerId);
-            const eligibleClaim =
-              !originallyDrafted && claimedBy === participant.seasonEntryId;
+            const waiverEvidence = currentWeekRosters.get(lineup.playerId) === participant.seasonEntryId
+              ? waiverEligibility.get(lineup.playerId)
+              : undefined;
+            const eligibleClaim = waiverEvidence !== undefined;
             const cutoff = player.position
               ? thresholds.get(player.position) ?? 0
               : 0;
@@ -254,6 +234,7 @@ export const season = internalMutation({
                 position: normalizeRosterSlot(lineup.rosterSlot),
                 points: lineup.points,
                 wasDraftedByTeam: !eligibleClaim,
+                ...(waiverEvidence ? { waiverEvidence } : {}),
                 ...(player.position ? { realPosition: player.position } : {}),
                 ...(effectiveWaiverPoints
                   ? { effectiveWaiverPoints }
@@ -294,7 +275,6 @@ export const season = internalMutation({
           away,
         });
       }
-      lastWeekRosters = currentWeekRosters;
     }
 
     const teams = entries
