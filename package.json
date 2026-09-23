@@ -10,7 +10,8 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "verify:dashboard-parity": "node --env-file=.env.local scripts/verify-dashboard-parity.mjs",
-    "verify:history-canonical": "node --env-file=.env.local scripts/verify-history-canonical.mjs"
+    "verify:history-canonical": "node --env-file=.env.local scripts/verify-history-canonical.mjs",
+    "test": "node --test --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tests/*.test.ts"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
