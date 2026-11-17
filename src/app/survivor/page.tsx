@@ -39,14 +39,14 @@ export default function SurvivorProgramPage() {
         <MastheadSkeleton />
         <div className="grid gap-4 lg:grid-cols-12 lg:gap-5">
           <ModuleSkeleton
-            title="Weekly knockouts"
-            rows={8}
-            className="lg:col-span-7"
-          />
-          <ModuleSkeleton
             title="Pool status"
             rows={4}
             className="lg:col-span-5"
+          />
+          <ModuleSkeleton
+            title="Weekly knockouts"
+            rows={8}
+            className="lg:col-span-7"
           />
         </div>
       </>
@@ -80,25 +80,6 @@ export default function SurvivorProgramPage() {
 
       <div className="grid gap-4 lg:grid-cols-12 lg:gap-5">
         <Module
-          title="Weekly knockouts"
-          qualifier="Newest first"
-          featured
-          className="lg:col-span-7"
-          status={
-            <Tag variant={alive === 1 ? "settled" : alive === 0 ? "alert" : "open"}>
-              {alive === 1 ? "Won" : alive === 0 ? "Pool empty" : `${alive} alive`}
-            </Tag>
-          }
-          note={
-            lowest !== null && highest !== null
-              ? `Knockout scores ranged from ${lowest.toFixed(2)} to ${highest.toFixed(2)} points.`
-              : undefined
-          }
-        >
-          <SurvivorLadder prizeData={prizeData} />
-        </Module>
-
-        <Module
           title="Pool status"
           qualifier={`$${SURVIVOR_PAYOUT}`}
           className="lg:col-span-5"
@@ -126,6 +107,26 @@ export default function SurvivorProgramPage() {
             </div>
 
             <FieldStrength fieldSize={state.fieldSize} remaining={alive} />
+
+            {alive > 1 ? (
+              <ul
+                aria-label="Teams still in"
+                className="divide-y divide-rule-2 border-t border-rule"
+              >
+                {state.alive.map((teamName) => (
+                  <li key={teamName} className="flex items-center gap-2 py-2">
+                    <EntryMark
+                      logoURL={getTeamLogo(prizeData, teamName)}
+                      label={teamName}
+                      size="sm"
+                    />
+                    <span className="min-w-0 text-sm leading-snug [overflow-wrap:anywhere]">
+                      {teamName}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
 
             {alive === 1 ? (
               <div className="flex items-center gap-2 border-t border-rule pt-3">
@@ -177,6 +178,25 @@ export default function SurvivorProgramPage() {
               </div>
             ) : null}
           </div>
+        </Module>
+
+        <Module
+          title="Weekly knockouts"
+          qualifier="Newest first"
+          featured
+          className="lg:col-span-7"
+          status={
+            <Tag variant={alive === 1 ? "settled" : alive === 0 ? "alert" : "open"}>
+              {alive === 1 ? "Won" : alive === 0 ? "Pool empty" : `${alive} alive`}
+            </Tag>
+          }
+          note={
+            lowest !== null && highest !== null
+              ? `Knockout scores ranged from ${lowest.toFixed(2)} to ${highest.toFixed(2)} points.`
+              : undefined
+          }
+        >
+          <SurvivorLadder prizeData={prizeData} />
         </Module>
       </div>
     </>
