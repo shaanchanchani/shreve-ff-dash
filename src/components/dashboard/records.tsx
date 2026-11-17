@@ -255,10 +255,12 @@ export function LongestRecordModule({
   );
 }
 
-/**
- * The longest-touchdown snapshot is refreshed on its own schedule, so its two
- * non-record states are real and both get a designed treatment.
- */
+const LONGEST_PLACEHOLDER_LABEL = {
+  loading: "Loading",
+  unavailable: "Unavailable",
+  empty: "No record",
+};
+
 export function LongestRecordPlaceholder({
   title,
   amount,
@@ -267,7 +269,7 @@ export function LongestRecordPlaceholder({
 }: {
   title: string;
   amount: number;
-  state: "loading" | "unavailable";
+  state: keyof typeof LONGEST_PLACEHOLDER_LABEL;
   className?: string;
 }) {
   return (
@@ -277,13 +279,8 @@ export function LongestRecordPlaceholder({
       className={className}
       status={
         <Tag variant={state === "loading" ? "open" : "out"}>
-          {state === "loading" ? "Loading" : "No record"}
+          {LONGEST_PLACEHOLDER_LABEL[state]}
         </Tag>
-      }
-      note={
-        state === "unavailable"
-          ? "This one refreshes on its own schedule and isn’t in yet."
-          : undefined
       }
     >
       {state === "loading" ? (
@@ -295,7 +292,9 @@ export function LongestRecordPlaceholder({
       ) : (
         <div className="flex h-full flex-col justify-center px-3 py-6">
           <p className="text-sm text-ink-2">
-            No qualifying touchdown yet.
+            {state === "unavailable"
+              ? "Touchdown data is unavailable for this season."
+              : "No qualifying touchdown recorded yet."}
           </p>
         </div>
       )}
