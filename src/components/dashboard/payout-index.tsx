@@ -4,6 +4,7 @@ import { Module } from "@/components/ui/module";
 import { Tag } from "@/components/ui/tag";
 import { EntryMark } from "@/components/common/entry-mark";
 import { regularSeasonComplete } from "@/lib/payout-model";
+import { SURVIVOR_PAYOUT } from "@/lib/prize-calculations";
 import type { PayoutLedger, PayoutRow } from "@/lib/payout-model";
 import type { PrizeData } from "@/types/prizes";
 import { cn } from "@/lib/utils";
@@ -23,7 +24,7 @@ export function PayoutIndex({
   className?: string;
 }) {
   const complete = regularSeasonComplete(prizeData);
-  const { rows, anythingOpen } = ledger;
+  const { rows, anythingOpen, dues } = ledger;
   const scale = Math.max(
     1,
     ...rows.map((row) => (anythingOpen ? row.max : row.decided)),
@@ -42,12 +43,20 @@ export function PayoutIndex({
       }
       note={
         anythingOpen
-          ? "Won is prize money the data has settled on a team. Max adds every prize still open to them — a prize nobody can win any more is counted in neither."
+          ? "Max includes prizes won and tracked awards the team can still win."
           : ledger.survivorUnresolved
-            ? `Every prize with a recorded winner. $${ledger.totalDefined - ledger.totalDecided} is unassigned because the survivor pool has no winner in the data.`
+            ? `The $${SURVIVOR_PAYOUT} Survivor award is still unresolved.`
             : "Every prize with a recorded winner."
       }
     >
+      {dues ? (
+        <p className="border-b border-rule px-3 py-2 text-sm text-ink-2">
+          ${ledger.totalDefined} in tracked awards
+          {dues.allocationPending > 0
+            ? ` · $${dues.allocationPending} pending allocation`
+            : null}
+        </p>
+      ) : null}
       <div className="overflow-x-auto scroll-rail">
         <table className="w-full min-w-[20rem] border-collapse text-left">
           <caption className="sr-only">
