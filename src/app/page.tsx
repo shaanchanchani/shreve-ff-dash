@@ -43,6 +43,7 @@ export default function PayoutIndexPage() {
     error,
     isLoadingPrize,
     isLoadingLongest,
+    longestUnavailable,
   } = usePrizeDashboard({ includeLongest: true });
   const { nextSeasonOnFile } = useSystemStatus();
   const { result: championResult, pending: championPending } =
@@ -53,6 +54,7 @@ export default function PayoutIndexPage() {
     () =>
       prizeData
         ? buildPayoutLedger({
+            seasonYear: CURRENT_SEASON,
             prizeData,
             longestCards,
             champion: championResult?.champion.teamName ?? null,
@@ -141,10 +143,17 @@ export default function PayoutIndexPage() {
             hint: complete ? "complete" : "in progress",
           },
           {
-            label: "Prize money",
+            label: "Prizes awarded",
             value: ledger && !ledger.pending ? `$${ledger.totalDecided}` : "—",
-            hint: ledger ? `of $${ledger.totalDefined} awarded` : undefined,
+            hint: ledger && !ledger.dues ? `of $${ledger.totalDefined} tracked` : undefined,
           },
+          ...(ledger?.dues
+            ? [{
+                label: "Expected dues",
+                value: `$${ledger.dues.expected}`,
+                hint: `$${ledger.dues.entryFee} per team`,
+              }]
+            : []),
         ]}
       />
 
@@ -182,7 +191,7 @@ export default function PayoutIndexPage() {
                   key={key}
                   title={LONGEST_TITLE[key] ?? "Longest TD"}
                   amount={longestAmountFor(key)}
-                  state={isLoadingLongest ? "loading" : "unavailable"}
+                  state={isLoadingLongest ? "loading" : longestUnavailable ? "unavailable" : "empty"}
                 />
               );
             }

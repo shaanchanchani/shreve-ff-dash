@@ -208,7 +208,7 @@ export function SurvivorModule({
             href="/survivor"
             className="meta mt-3 inline-flex items-center gap-1.5 border border-rule px-2 py-1.5 text-ink-2 transition-colors hover:border-ink hover:text-ink"
           >
-            All weeks
+            View pool
             <span aria-hidden="true">→</span>
           </Link>
         </div>

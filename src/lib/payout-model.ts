@@ -35,6 +35,10 @@ export const LONGEST_KEYS = Object.keys(LONGEST_AMOUNT);
 
 export const longestAmountFor = (key: string) => LONGEST_AMOUNT[key] ?? 0;
 
+const ENTRY_FEE_BY_SEASON: Partial<Record<number, number>> = {
+  2026: 50,
+};
+
 /**
  * Every prize in the structure, summed for this season's rules. Not a pot and
  * not dues — the awards themselves. Weekly scales with the season length.
@@ -133,6 +137,11 @@ export type PayoutLedger = {
   rows: PayoutRow[];
   totalDecided: number;
   totalDefined: number;
+  dues?: {
+    entryFee: number;
+    expected: number;
+    allocationPending: number;
+  };
   /** False once every prize has a holder or can no longer be won. */
   anythingOpen: boolean;
   /** True while a deferred source has not answered yet. */
@@ -142,11 +151,13 @@ export type PayoutLedger = {
 };
 
 export const buildPayoutLedger = ({
+  seasonYear,
   prizeData,
   longestCards,
   champion,
   pending,
 }: {
+  seasonYear: number;
   prizeData: PrizeData;
   longestCards: LongestCard[];
   champion?: string | null;
@@ -272,10 +283,21 @@ export const buildPayoutLedger = ({
         left.teamName.localeCompare(right.teamName),
     );
 
+  const totalDefined = totalAwardsDefined(prizeData);
+  const entryFee = ENTRY_FEE_BY_SEASON[seasonYear] ?? 0;
+  const expectedDues = entryFee * prizeData.standings.length;
+
   return {
     rows,
     totalDecided: rows.reduce((sum, row) => sum + row.decided, 0),
-    totalDefined: totalAwardsDefined(prizeData),
+    totalDefined,
+    dues: expectedDues > 0
+      ? {
+          entryFee,
+          expected: expectedDues,
+          allocationPending: Math.max(0, expectedDues - totalDefined),
+        }
+      : undefined,
     anythingOpen: rows.some((row) => row.max > row.decided),
     pending: longestPending || championPending,
     survivorUnresolved: survivor.poolExhausted,
