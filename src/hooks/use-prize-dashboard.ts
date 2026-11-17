@@ -31,6 +31,7 @@ export const usePrizeDashboard = ({
     error,
     isLoadingPrize,
     isLoadingLongest,
+    longestUnavailable: includeLongest && longestSnapshot === null,
     generatedAt: snapshot?.generatedAt ?? null,
     seasonYear: CURRENT_SEASON,
   };
